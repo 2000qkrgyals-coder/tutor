@@ -467,7 +467,12 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcG1pdmJwbHZpZmpzeXl1eW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNjIxNTksImV4cCI6MjEwMDczODE1OX0.BUEQbr0sPQzbWPi3-nsM0uXCs7bJ0E00ZDQucrVvQ68';
         
         const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                storage: window.sessionStorage
+            }
+        });
 
         let allStudents = [];
         let allTextbooks = [];
