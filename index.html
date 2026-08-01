@@ -1478,6 +1478,7 @@
             const totalSessions = targetLogs.length;
             let hwRateSum = 0, hwCount = 0;
             let testRateSum = 0, testCount = 0;
+            let hasTestRecord = false; // 데일리테스트 실제 실시 여부 체크
 
             const labels = [];
             const homeworkRates = [];
@@ -1509,7 +1510,9 @@
 
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
+                    // 총 문항 수가 존재하고 기록이 있는 경우에만 테스트 집계
                     if (dtObj.total !== undefined && dtObj.total > 0) {
+                        hasTestRecord = true;
                         const rate = Math.round((dtObj.correct / dtObj.total) * 100);
                         testRates.push(rate);
                         testRateSum += rate;
@@ -1537,24 +1540,21 @@
 
             document.getElementById('pdf-stat-sessions').innerText = totalSessions;
             document.getElementById('pdf-stat-hw').innerText = avgHw;
-            document.getElementById('pdf-stat-test').innerText = avgTest;
+            document.getElementById('pdf-stat-test').innerText = hasTestRecord ? avgTest : 0;
 
-            let totalWrongCount = Object.values(reasonCounts).reduce((a, b) => a + b, 0);
-            let reasonSummaryText = "";
-            if (totalWrongCount > 0) {
-                let sortedReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
-                let topReason = sortedReasons[0];
-                let topReasonPercent = Math.round((topReason[1] / totalWrongCount) * 100);
-                reasonSummaryText = ` 데일리테스트 분석 결과, 오답 원인 중 <b>'${topReason[0]}'</b> 비중이 가장 높았으며(${topReasonPercent}%), 이를 중심으로 보완 지도를 진행하고 있습니다.`;
-            } else {
-                reasonSummaryText = ` 데일리테스트 오답 기록이 깔끔하게 관리되었습니다.`;
-            }
-
+            // [수정된 브리핑 문구 생성 로직]
             const summaryEl = document.getElementById('pdf-summary-text');
             if (totalSessions === 0) {
                 summaryEl.innerText = `이번 ${parseInt(month)}월에는 등록된 수업 기록이 없습니다.`;
             } else {
-                summaryEl.innerHTML = `이번 <b>${parseInt(month)}월</b> 동안 <b>${currentSelectedStudent || '학생'}</b> 학생은 총 <b>${totalSessions}회</b>의 수업을 진행하였습니다. 평균 숙제 이행률은 <b>${avgHw}%</b>, 데일리테스트 평균 정답률은 <b>${avgTest}%</b>를 기록하며 성실하게 학습에 임했습니다.${reasonSummaryText} 전반적인 개념 이해도와 과제 성실도가 우수하며 꾸준한 페이스를 유지하고 있습니다.`;
+                let testText = "";
+                if (!hasTestRecord) {
+                    testText = `데일리테스트는 이번 달에 <b>미실시</b>하였습니다.`;
+                } else {
+                    testText = `데일리테스트 평균 정답률은 <b>${avgTest}%</b>를 기록했습니다.`;
+                }
+
+                summaryEl.innerHTML = `이번 <b>${parseInt(month)}월</b> 동안 <b>${currentSelectedStudent || '학생'}</b> 학생은 총 <b>${totalSessions}회</b>의 수업을 진행하였습니다. 평균 숙제 이행률은 <b>${avgHw}%</b>이며, ${testText} 이번 한 달간 진행된 숙제와 테스트 수행 상황을 차분히 정리하며 다음 학습을 준비하고 있습니다.`;
             }
 
             renderPdfCharts(labels, homeworkRates, testRates, reasonCounts);
