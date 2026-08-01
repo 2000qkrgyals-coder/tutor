@@ -157,7 +157,7 @@
                 </div>
             </div>
 
-            <!-- 지난 숙제 검사 영역 (수정됨: 직전 회차 자동 연동 + 직접 추가 기능) -->
+            <!-- 지난 숙제 검사 영역 -->
             <div class="space-y-3 bg-amber-50/60 p-4 rounded-xl border border-amber-200/60">
                 <div class="flex justify-between items-center">
                     <label class="font-bold text-xs text-amber-800 flex items-center gap-1.5">
@@ -303,7 +303,7 @@
             <!-- 회차별 숙제 이행률 그래프 -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>📈</span> 회차별 숙제 이행률 흐름 (%)
+                    <span>📈</span> 회차별 숙제 이행률 흐름 (%) <span class="text-[10px] text-slate-400 font-normal">(숙제 미부여 시 100% 기록)</span>
                 </h3>
                 <div class="relative h-48 w-full">
                     <canvas id="homeworkChart"></canvas>
@@ -313,7 +313,7 @@
             <!-- 회차별 데일리테스트 정답률 그래프 -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>📊</span> 회차별 데일리테스트 정답률 흐름 (%)
+                    <span>📊</span> 회차별 데일리테스트 정답률 흐름 (%) <span class="text-[10px] text-slate-400 font-normal">(미실시 회차는 제외)</span>
                 </h3>
                 <div class="relative h-48 w-full">
                     <canvas id="testChart"></canvas>
@@ -799,8 +799,7 @@
             return options;
         }
 
-        // [수정됨] 직전 회차의 숙제 내용을 자동 연동하여 표시하고, 직접 입력 및 추가/삭제 가능하도록 구현
-        function autoLoadLatestHomework(savedCheckList = null, sourceLogObj = null) {
+        function autoLoadLatestHomework(savedCheckList = null) {
             const container = document.getElementById('homework-check-container');
             container.innerHTML = '';
 
@@ -809,7 +808,6 @@
             if (savedCheckList) {
                 targetHomeworks = savedCheckList;
             } else if (currentSelectedStudent) {
-                // 해당 학생의 가장 최근 일지 1개 찾기
                 const studentLogs = allLogs
                     .filter(l => l.student_name === currentSelectedStudent)
                     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -833,28 +831,25 @@
                 return;
             }
 
-            targetHomeworks.forEach((item, index) => {
-                renderHomeworkCheckRow(item, index);
+            targetHomeworks.forEach((item) => {
+                renderHomeworkCheckRow(item);
             });
 
             document.getElementById('total-rate-box').classList.remove('hidden');
             calculateOverallRate();
         }
 
-        // 숙제 검사 항목 행 추가 함수 (직접 입력 및 수정 가능)
         function addHomeworkCheckRow(item = {}) {
             const container = document.getElementById('homework-check-container');
-            // 안내 문구가 있으면 제거
             const placeholder = container.querySelector('p');
             if (placeholder) placeholder.remove();
 
-            const index = document.querySelectorAll('.check-item').length;
-            renderHomeworkCheckRow(item, index, true);
+            renderHomeworkCheckRow(item);
             document.getElementById('total-rate-box').classList.remove('hidden');
             calculateOverallRate();
         }
 
-        function renderHomeworkCheckRow(item, index, isNew = false) {
+        function renderHomeworkCheckRow(item) {
             const container = document.getElementById('homework-check-container');
             const rowId = 'check-row-' + Math.random().toString(36).substring(2, 9);
             
@@ -1036,7 +1031,7 @@
                 const end = item.querySelector('.check-end') ? item.querySelector('.check-end').value : '';
                 const total_pages = parseInt(item.querySelector('.check-total').value) || 0;
                 const done_pages = parseInt(item.querySelector('.check-done').value) || 0;
-                const rate = total_pages > 0 ? Math.min(100, Math.round((done_pages / total_pages) * 100)) : 0;
+                const rate = total_pages > 0 ? Math.min(100, Math.round((done_pages / total_pages) * 100)) : 100;
                 homeworkCheckList.push({ textbook, desc, start, end, total_pages, done_pages, rate });
             });
 
@@ -1284,7 +1279,6 @@
             }
         }
 
-        // 데이터 백업(다운로드) 함수
         function exportDataToJson() {
             const backupData = {
                 exportDate: new Date().toISOString(),
@@ -1303,7 +1297,6 @@
             alert('백업 파일이 성공적으로 다운로드되었습니다!');
         }
 
-        // 데이터 복구(업로드) 함수
         async function importDataFromJson() {
             const fileInput = document.getElementById('backup-file-input');
             if (!fileInput.files || fileInput.files.length === 0) {
@@ -1398,6 +1391,7 @@
                 const sessionLabel = l.session_number ? `${l.session_number}회차` : `${l.date.substring(8)}일`;
                 labels.push(sessionLabel);
 
+                // 숙제 이행률 계산 (숙제가 없으면 100%로 처리)
                 try {
                     const checkList = JSON.parse(l.homework_check || '[]');
                     if (checkList.length > 0) {
@@ -1406,17 +1400,22 @@
                             tSum += Number(c.total_pages) || 0;
                             dSum += Number(c.done_pages) || 0;
                         });
-                        const rate = tSum > 0 ? Math.round((dSum / tSum) * 100) : 0;
+                        const rate = tSum > 0 ? Math.round((dSum / tSum) * 100) : 100;
                         homeworkRates.push(rate);
                         hwRateSum += rate;
                         hwCount++;
                     } else {
-                        homeworkRates.push(0);
+                        homeworkRates.push(100);
+                        hwRateSum += 100;
+                        hwCount++;
                     }
                 } catch(e) {
-                    homeworkRates.push(0);
+                    homeworkRates.push(100);
+                    hwRateSum += 100;
+                    hwCount++;
                 }
 
+                // 데일리테스트 정답률 계산 (미실시 시 null 처리하여 평균에서 제외)
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
                     if (dtObj.total !== undefined && dtObj.total > 0) {
@@ -1478,7 +1477,7 @@
             const totalSessions = targetLogs.length;
             let hwRateSum = 0, hwCount = 0;
             let testRateSum = 0, testCount = 0;
-            let hasTestRecord = false; // 데일리테스트 실제 실시 여부 체크
+            let hasTestRecord = false; 
 
             const labels = [];
             const homeworkRates = [];
@@ -1489,6 +1488,7 @@
                 const sessionLabel = l.session_number ? `${l.session_number}회차` : `${l.date.substring(8)}일`;
                 labels.push(sessionLabel);
 
+                // 숙제 이행률 (미부여 시 100%)
                 try {
                     const checkList = JSON.parse(l.homework_check || '[]');
                     if (checkList.length > 0) {
@@ -1497,20 +1497,24 @@
                             tSum += Number(c.total_pages) || 0;
                             dSum += Number(c.done_pages) || 0;
                         });
-                        const rate = tSum > 0 ? Math.round((dSum / tSum) * 100) : 0;
+                        const rate = tSum > 0 ? Math.round((dSum / tSum) * 100) : 100;
                         homeworkRates.push(rate);
                         hwRateSum += rate;
                         hwCount++;
                     } else {
-                        homeworkRates.push(0);
+                        homeworkRates.push(100);
+                        hwRateSum += 100;
+                        hwCount++;
                     }
                 } catch(e) {
-                    homeworkRates.push(0);
+                    homeworkRates.push(100);
+                    hwRateSum += 100;
+                    hwCount++;
                 }
 
+                // 데일리테스트 (미실시 시 제외)
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
-                    // 총 문항 수가 존재하고 기록이 있는 경우에만 테스트 집계
                     if (dtObj.total !== undefined && dtObj.total > 0) {
                         hasTestRecord = true;
                         const rate = Math.round((dtObj.correct / dtObj.total) * 100);
@@ -1542,7 +1546,6 @@
             document.getElementById('pdf-stat-hw').innerText = avgHw;
             document.getElementById('pdf-stat-test').innerText = hasTestRecord ? avgTest : 0;
 
-            // [수정된 브리핑 문구 생성 로직]
             const summaryEl = document.getElementById('pdf-summary-text');
             if (totalSessions === 0) {
                 summaryEl.innerText = `이번 ${parseInt(month)}월에는 등록된 수업 기록이 없습니다.`;
@@ -1787,6 +1790,12 @@
                                     ${wrongDetails ? `<div class="pt-1.5 border-t border-rose-200/50">${wrongDetails}</div>` : '<div class="text-slate-500 pl-1">틀린 문항 없음 (만점 🌟)</div>'}
                                 </div>
                             `;
+                        } else {
+                            dtHtml = `
+                                <div class="text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/70 space-y-1.5 mt-2 text-slate-500">
+                                    <span>📝 데일리테스트: <b>미실시</b></span>
+                                </div>
+                            `;
                         }
                     } catch(e) {}
 
@@ -1805,7 +1814,7 @@
                                 return `<div class="mt-1 text-amber-900">• <b>[숙제검사] ${checkTitle}</b>${rangeStr}${descStr}: <span class="font-bold">${c.done_pages}/${c.total_pages}p</span> 완료 <span class="text-indigo-600 font-bold">(${c.rate}%)</span></div>`;
                             }).join('');
 
-                            const overallRate = totalSum > 0 ? Math.round((doneSum / totalSum) * 100) : 0;
+                            const overallRate = totalSum > 0 ? Math.round((doneSum / totalSum) * 100) : 100;
                             checkHtml = `<div class="text-xs bg-amber-50/70 p-3 rounded-xl border border-amber-200/70 space-y-1.5 mt-2 shadow-2xs">
                                 <div class="font-bold text-amber-950 flex items-center gap-1">📋 지난 숙제 검사 결과</div>
                                 <div class="pl-1 space-y-0.5">${detailStr}</div>
@@ -1814,6 +1823,10 @@
                                     <span class="bg-indigo-600 text-white px-2 py-0.5 rounded-lg">${overallRate}%</span>
                                 </div>
                             `;
+                        } else {
+                            checkHtml = `<div class="text-xs bg-amber-50/70 p-3 rounded-xl border border-amber-200/70 space-y-1.5 mt-2 text-amber-900">
+                                <div class="font-bold">📋 지난 숙제 검사 결과: <b>숙제 없음 (100% 처리)</b></div>
+                            </div>`;
                         }
                     } catch(e) {}
 
@@ -1846,7 +1859,6 @@
                                     <span class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100">${l.session_number ? l.session_number + '회차' : '회차 없음'}</span>
                                 </span>
                                 <div class="space-x-1.5 text-xs flex items-center">
-                                    <button onclick="generateKakaoScript('${l.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm">💬 카톡 스크립트</button>
                                     <button onclick="editLog('${l.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold px-2.5 py-1.5 rounded-lg transition-all">수정</button>
                                     <button onclick="deleteLog('${l.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold px-2.5 py-1.5 rounded-lg transition-all">삭제</button>
                                 </div>
@@ -1867,96 +1879,7 @@
                     `;
                 });
             } else {
-                listDiv.innerHTML = '<p class="text-center text-slate-400 py-8 text-xs">조건에 해당하는 저장된 일지가 없습니다.</p>';
-            }
-        }
-
-        function generateKakaoScript(logId) {
-            const l = allLogs.find(item => item.id == logId);
-            if (!l) return;
-
-            const sessionTitle = l.session_number ? `${l.session_number}회차` : '수업';
-            let script = `안녕하세요 학부모님! 오늘 ${l.student_name} 학생의 ${sessionTitle} 수학 수업 리포트 안내해 드립니다. 😊\n\n`;
-            
-            script += `📅 수업일시: ${l.date}\n`;
-            
-            try {
-                const progList = JSON.parse(l.note || '[]');
-                if (progList.length > 0) {
-                    script += `\n📖 [오늘 나간 진도]\n`;
-                    progList.forEach(p => {
-                        script += `- [${p.textbook}] ${p.start}~${p.end}페이지${p.desc ? ' (' + p.desc + ')' : ''}\n`;
-                    });
-                }
-            } catch(e) {}
-
-            try {
-                const checkList = JSON.parse(l.homework_check || '[]');
-                if (checkList.length > 0) {
-                    script += `\n📋 [지난 숙제 검사 결과]\n`;
-                    let totalSum = 0, doneSum = 0;
-                    checkList.forEach(c => {
-                        totalSum += Number(c.total_pages) || 0;
-                        doneSum += Number(c.done_pages) || 0;
-                        script += `- [${c.textbook}] 전체 ${c.total_pages}p 중 ${c.done_pages}p 완료 (${c.rate}%)\n`;
-                    });
-                    const overallRate = totalSum > 0 ? Math.round((doneSum / totalSum) * 100) : 0;
-                    script += `👉 총 숙제 이행률: ${overallRate}%\n`;
-                }
-            } catch(e) {}
-
-            try {
-                const dtObj = JSON.parse(l.daily_test || '{}');
-                if (dtObj.total !== undefined && dtObj.total > 0) {
-                    const scoreRate = Math.round((dtObj.correct / dtObj.total) * 100);
-                    script += `\n📝 [데일리테스트 결과]\n`;
-                    script += `- 점수: ${dtObj.correct} / ${dtObj.total}문제 (${scoreRate}%)\n`;
-                    if (Array.isArray(dtObj.wrongs) && dtObj.wrongs.length > 0) {
-                        script += `* 오답 피드백:\n`;
-                        dtObj.wrongs.forEach(w => {
-                            script += `  • ${w.q_num}번 틀림 [오답원인: ${w.reason}]${w.desc ? ' - ' + w.desc : ''}\n`;
-                        });
-                    } else {
-                        script += `* 틀린 문항 없이 완벽하게 잘 풀어주었습니다! 🌟\n`;
-                    }
-                }
-            } catch(e) {}
-
-            try {
-                const hwList = JSON.parse(l.homework_note || '[]');
-                if (hwList.length > 0) {
-                    script += `\n✏️ [다음 숙제 안내]\n`;
-                    hwList.forEach(h => {
-                        script += `- [${h.textbook}] ${h.start}~${h.end}페이지${h.desc ? ' (' + h.desc + ')' : ''}\n`;
-                    });
-                }
-            } catch(e) {}
-
-            if (l.concentration || l.feedback_note) {
-                script += `\n💡 [수업 태도 및 코멘트]\n`;
-                if (l.concentration) script += `- 수업 집중도: ${l.concentration}\n`;
-                if (l.feedback_note) script += `${l.feedback_note}\n`;
-            }
-
-            script += `\n궁금하신 점이 있으시면 언제든 편하게 연락 주세요. 감사합니다! ✨`;
-
-            document.getElementById('kakao-script-text').value = script;
-            document.getElementById('kakao-modal').classList.remove('hidden');
-        }
-
-        function closeKakaoModal() {
-            document.getElementById('kakao-modal').classList.add('hidden');
-        }
-
-        function copyKakaoScript() {
-            const textarea = document.getElementById('kakao-script-text');
-            textarea.select();
-            textarea.setSelectionRange(0, 99999);
-            try {
-                navigator.clipboard.writeText(textarea.value);
-                alert('카카오톡 스크립트가 복사되었습니다! 카톡창에 바로 붙여넣기 하세요.');
-            } catch (err) {
-                alert('복사에 실패했습니다. 직접 드래그해서 복사해주세요.');
+                listDiv.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">조건에 맞는 저장된 수업 일지가 없습니다.</p>';
             }
         }
     </script>
