@@ -1550,7 +1550,6 @@
             if (totalSessions === 0) {
                 summaryEl.innerText = `이번 ${parseInt(month)}월에는 등록된 수업 기록이 없습니다.`;
             } else {
-                // 숙제 이행률 구간별 분석
                 let hwAnalysis = "";
                 if (avgHw >= 90) {
                     hwAnalysis = `숙제 이행률이 평균 <b>${avgHw}%</b>로 매우 훌륭하며, 과제를 성실히 수행하고 있습니다. 지금의 학습 태도를 꾸준히 유지할 수 있도록 격려해 주시면 좋겠습니다.`;
@@ -1560,12 +1559,10 @@
                     hwAnalysis = `숙제 이행률이 평균 <b>${avgHw}%</b>로 다소 아쉽습니다. 과제 분량을 적절히 조절하거나 오답 복습 과정을 타이트하게 관리하여 학습 습관을 다잡을 필요가 있습니다.`;
                 }
 
-                // 테스트 및 오답 원인 분석
                 let testAnalysis = "";
                 if (!hasTestRecord) {
                     testAnalysis = `이번 달 데일리테스트는 <b>미실시</b>하였습니다.`;
                 } else {
-                    let totalWrongCount = Object.values(reasonCounts).reduce((a, b) => a + b, 0);
                     let dominantReason = "기타";
                     let maxCount = -1;
                     for (let [reason, count] of Object.entries(reasonCounts)) {
@@ -1761,6 +1758,123 @@
             });
         }
 
+        // 카톡 스크립트 모달 열기 및 데이터 생성
+        function openKakaoModal(id) {
+            const log = allLogs.find(l => l.id == id);
+            if(!log) return;
+
+            const studentName = log.student_name || '학생';
+            const dateStr = log.date || '';
+            const sessionStr = log.session_number ? `${log.session_number}회차` : '';
+            const timeStr = (log.start_time && log.end_time) ? `${log.start_time} ~ ${log.end_time}` : '';
+
+            // 진도 파싱
+            let progressText = '';
+            try {
+                const pList = JSON.parse(log.note || '[]');
+                if (pList.length > 0) {
+                    progressText = pList.map(p => `• [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`).join('\n');
+                }
+            } catch(e) {}
+
+            // 숙제 검사 파싱
+            let checkText = '';
+            let overallCheckRate = 100;
+            try {
+                const cList = JSON.parse(log.homework_check || '[]');
+                if (cList.length > 0) {
+                    let tSum = 0, dSum = 0;
+                    let details = cList.map(c => {
+                        tSum += Number(c.total_pages) || 0;
+                        dSum += Number(c.done_pages) || 0;
+                        return `• [${c.textbook}] ${c.done_pages}/${c.total_pages}p 완료 (${c.rate}%)`;
+                    }).join('\n');
+                    overallCheckRate = tSum > 0 ? Math.round((dSum / tSum) * 100) : 100;
+                    checkText = `${details}\n(총 이행률: ${overallCheckRate}%)`;
+                } else {
+                    checkText = '• 숙제 없음 (100% 완료)';
+                }
+            } catch(e) {
+                checkText = '• 숙제 없음';
+            }
+
+            // 데일리테스트 파싱
+            let testText = '';
+            try {
+                const dt = JSON.parse(log.daily_test || '{}');
+                if (dt.total !== undefined && dt.total > 0) {
+                    const rate = Math.round((dt.correct / dt.total) * 100);
+                    let wrongsStr = '';
+                    if (Array.isArray(dt.wrongs) && dt.wrongs.length > 0) {
+                        wrongsStr = '\n[오답 노트]\n' + dt.wrongs.map(w => `- ${w.q_num}번 틀림 (${w.reason}) ${w.desc ? '- '+w.desc : ''}`).join('\n');
+                    }
+                    testText = `• 점수: ${dt.correct} / ${dt.total}문제 (${rate}%)\n${wrongsStr}`;
+                } else {
+                    testText = '• 미실시';
+                }
+            } catch(e) {
+                testText = '• 미실시';
+            }
+
+            // 다음 숙제 파싱
+            let nextHwText = '';
+            try {
+                const hList = JSON.parse(log.homework_note || '[]');
+                if (hList.length > 0) {
+                    nextHwText = hList.map(h => `• [${h.textbook}] ${h.start}~${h.end}p ${h.desc ? '('+h.desc+')' : ''}`).join('\n');
+                } else {
+                    nextHwText = '• 이번 회차 내준 숙제 없음';
+                }
+            } catch(e) {}
+
+            // 피드백 및 집중도
+            let concentrationText = log.concentration ? `[수업 집중도: ${log.concentration}]` : '';
+            let feedbackText = log.feedback_note ? log.feedback_note : '';
+
+            // 최종 카톡 템플릿 조합
+            const script = `[수학 과외 수업 안내 리포트]
+
+안녕하세요 학부모님! ${dateStr} (${sessionStr}) ${studentName} 학생 수업 진행 상황 안내해 드립니다. 📚
+
+⏰ 수업 시간: ${timeStr}
+🎯 집중도: ${log.concentration || '상'}
+
+📖 [오늘 나간 진도]
+${progressText || '진도 내용 없음'}
+
+📋 [지난 숙제 검사 결과]
+${checkText}
+
+📝 [데일리테스트 결과]
+${testText}
+
+✏️ [이번에 나간 숙제]
+${nextHwText}
+
+💡 [선생님 코멘트]
+${concentrationText}
+${feedbackText || '오늘도 열심히 잘 따라와 주었습니다. 가정에서도 많은 격려 부탁드립니다! 감사합니다. 😊'}`;
+
+            document.getElementById('kakao-script-text').value = script;
+            document.getElementById('kakao-modal').classList.remove('hidden');
+        }
+
+        function closeKakaoModal() {
+            document.getElementById('kakao-modal').classList.add('hidden');
+        }
+
+        function copyKakaoScript() {
+            const textarea = document.getElementById('kakao-script-text');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(textarea.value);
+                alert('카톡 스크립트 내용이 클립보드에 복사되었습니다! 카카오톡창에 붙여넣기 하세요.');
+            } catch (err) {
+                alert('복사 실패: 직접 텍스트를 복사해주세요.');
+            }
+        }
+
         function renderLogList() {
             const listDiv = document.getElementById('log-list');
             listDiv.innerHTML = '';
@@ -1891,6 +2005,7 @@
                                     <span class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100">${l.session_number ? l.session_number + '회차' : '회차 없음'}</span>
                                 </span>
                                 <div class="space-x-1.5 text-xs flex items-center">
+                                    <button onclick="openKakaoModal('${l.id}')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1"><span>💬</span> 카톡 스크립트</button>
                                     <button onclick="editLog('${l.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold px-2.5 py-1.5 rounded-lg transition-all">수정</button>
                                     <button onclick="deleteLog('${l.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold px-2.5 py-1.5 rounded-lg transition-all">삭제</button>
                                 </div>
@@ -1917,4 +2032,3 @@
     </script>
 </body>
 </html>
-```[cite: 5]
