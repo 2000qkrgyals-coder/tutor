@@ -1197,7 +1197,7 @@
             }
         }
 
-        // 카톡 스크립트 생성 및 모달 열기 함수
+        // 카톡 스크립트 생성 및 모달 열기 함수 (수업 집중도 및 종합 피드백 자동 포함)
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -1209,7 +1209,7 @@
             try {
                 const pList = JSON.parse(log.note || '[]');
                 if (pList.length > 0) {
-                    progressStr = pList.map(p => `[${p.textbook}] ${p.start}~${p.end}p${p.desc ? ' ('+p.desc+')' : ''}`).join(', ');
+                    progressStr = pList.map(p => `[${p.textbook}] ${p.start}~${p.end}p${p.desc ? ' ('+p.desc+')' : ''}`).join('\n');
                 }
             } catch(e) {}
             if (!progressStr) progressStr = `${log.textbook || ''} ${log.start_page || ''}~${log.end_page || ''}p`;
@@ -1257,7 +1257,25 @@
             } catch(e) {}
             if (!nextHwStr) nextHwStr = '없음';
 
-            let feedbackStr = log.feedback_note ? `[선생님 코멘트]\n${log.feedback_note}` : '';
+            // 수업 집중도 및 종합 피드백 연동 로직
+            let concentrationStr = '';
+            if (log.concentration === '최상') {
+                concentrationStr = '🎯 수업 집중도: 최상 (오늘 수업에 매우 몰입하며 훌륭하게 참여했습니다! 👍)';
+            } else if (log.concentration === '상') {
+                concentrationStr = '🎯 수업 집중도: 상 (수업에 잘 집중하며 성실하게 임했습니다!)';
+            } else if (log.concentration === '중') {
+                concentrationStr = '🎯 수업 집중도: 중 (보통 수준으로 차분하게 수업을 마쳤습니다.)';
+            } else if (log.concentration === '하') {
+                concentrationStr = '🎯 수업 집중도: 하 (다소 산만하거나 지루해하는 경향이 있어 격려가 필요합니다.)';
+            } else {
+                concentrationStr = log.concentration ? `🎯 수업 집중도: ${log.concentration}` : '';
+            }
+            let feedbackNoteStr = log.feedback_note ? `${log.feedback_note}` : '';
+            
+            let feedbackStr = '';
+            if (concentrationStr || feedbackNoteStr) {
+                feedbackStr = `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}`;
+            }
 
             const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n📖 [진도 현황]\n${progressStr}\n\n${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
 
