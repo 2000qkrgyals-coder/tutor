@@ -1266,6 +1266,7 @@
                             </div>
                             <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                                 <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">달성률 ${progressRate}%</span>
+                                <button onclick="editRoadmap('${rm.id}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2.5 py-1 bg-indigo-50 rounded-lg border border-indigo-200">수정</button>
                                 <button onclick="deleteRoadmap('${rm.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500 px-2 py-1">삭제</button>
                             </div>
                         </div>
@@ -1286,11 +1287,55 @@
             });
         }
 
-        function openCreateRoadmapModal() {
+function openCreateRoadmapModal() {
             if(!currentSelectedStudent) return alert('먼저 학생을 선택해주세요.');
-            document.getElementById('rm-title').value = '중1-2 기말 전범위 완주 로드맵 (베이직쎈 + 교과서)';
+            // 신규 생성이므로 수정 ID를 비움
+            const editInput = document.getElementById('editing-roadmap-id');
+            if(editInput) editInput.value = '';
+
+            document.getElementById('rm-title').value = '';
             document.getElementById('rm-steps-container').innerHTML = '';
-            loadDefaultMultiBookTemplate();
+            
+            // 자동 템플릿 대신 1단계 빈 카드 1개로 시작
+            addRoadmapStepCard({ step_no: 1, title: '', books: [{ textbook: '', start: '', end: '', desc: '' }] });
+            
+            const btn = document.getElementById('rm-submit-btn');
+            if(btn) {
+                btn.innerText = '로드맵 저장하기';
+                btn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all';
+            }
+            document.getElementById('roadmap-modal').classList.remove('hidden');
+        }
+
+        // [새로 추가] 로드맵 카드의 수정 버튼을 눌렀을 때 실행될 함수
+        function editRoadmap(roadmapId) {
+            const rm = allRoadmaps.find(r => r.id == roadmapId);
+            if(!rm) return;
+
+            const editInput = document.getElementById('editing-roadmap-id');
+            if(editInput) editInput.value = rm.id;
+
+            document.getElementById('rm-title').value = rm.title || '';
+            
+            const container = document.getElementById('rm-steps-container');
+            container.innerHTML = '';
+
+            let steps = [];
+            try {
+                steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+            } catch(e) {}
+
+            if(steps.length > 0) {
+                steps.forEach(st => addRoadmapStepCard(st));
+            } else {
+                addRoadmapStepCard({ step_no: 1, title: '', books: [{ textbook: '', start: '', end: '', desc: '' }] });
+            }
+
+            const btn = document.getElementById('rm-submit-btn');
+            if(btn) {
+                btn.innerText = '로드맵 수정 완료';
+                btn.className = 'flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all';
+            }
             document.getElementById('roadmap-modal').classList.remove('hidden');
         }
 
@@ -1298,96 +1343,6 @@
             document.getElementById('roadmap-modal').classList.add('hidden');
         }
 
-        // 다중 교재 기본 템플릿 로드 (다각형 ~ 통계 끝까지 완주)[cite: 76, 77, 86]
-        function loadDefaultMultiBookTemplate() {
-            const container = document.getElementById('rm-steps-container');
-            container.innerHTML = '';
-
-            const defaultSteps = [
-                {
-                    step_no: 1,
-                    title: "다각형 기초 & 대각선",
-                    books: [
-                        { textbook: "베이직쎈", start: 76, end: 81, desc: "개념 22~24" },
-                        { textbook: "교과서", start: 98, end: 101, desc: "다각형 기본 예제" }
-                    ]
-                },
-                {
-                    step_no: 2,
-                    title: "다각형 내각과 외각의 크기",
-                    books: [
-                        { textbook: "베이직쎈", start: 86, end: 91, desc: "개념 25~26" },
-                        { textbook: "교과서", start: 102, end: 105, desc: "내각·외각 문제" }
-                    ]
-                },
-                {
-                    step_no: 3,
-                    title: "원과 부채꼴의 성질",
-                    books: [
-                        { textbook: "베이직쎈", start: 98, end: 105, desc: "개념 27~29" },
-                        { textbook: "교과서", start: 110, end: 113, desc: "중심각과 호" }
-                    ]
-                },
-                {
-                    step_no: 4,
-                    title: "부채꼴 계산 & 다면체 입문",
-                    books: [
-                        { textbook: "베이직쎈", start: 108, end: 111, desc: "개념 30~31" },
-                        { textbook: "베이직쎈", start: 118, end: 123, desc: "개념 32 다면체" },
-                        { textbook: "프린트", start: 1, end: 2, desc: "부채꼴 계산 클리닉 10제" }
-                    ]
-                },
-                {
-                    step_no: 5,
-                    title: "정다면체 5종 & 회전체 성질",
-                    books: [
-                        { textbook: "베이직쎈", start: 124, end: 133, desc: "개념 33~37" },
-                        { textbook: "교과서", start: 125, end: 129, desc: "전개도 분석" }
-                    ]
-                },
-                {
-                    step_no: 6,
-                    title: "입체도형 겉넓이와 부피 (기둥)",
-                    books: [
-                        { textbook: "베이직쎈", start: 142, end: 146, desc: "개념 38~39" },
-                        { textbook: "교과서", start: 135, end: 138, desc: "기둥 겉넓이·부피" }
-                    ]
-                },
-                {
-                    step_no: 7,
-                    title: "입체도형 겉넓이와 부피 (뿔과 구)",
-                    books: [
-                        { textbook: "베이직쎈", start: 148, end: 155, desc: "개념 40~42" },
-                        { textbook: "교과서", start: 140, end: 144, desc: "뿔·구 공식 적용" }
-                    ]
-                },
-                {
-                    step_no: 8,
-                    title: "통계: 도수분포표, 히스토그램",
-                    books: [
-                        { textbook: "베이직쎈", start: 160, end: 173, desc: "개념 43~47" },
-                        { textbook: "교과서", start: 155, end: 160, desc: "도수분포표 해석" }
-                    ]
-                },
-                {
-                    step_no: 9,
-                    title: "통계: 상대도수와 분포 그래프",
-                    books: [
-                        { textbook: "베이직쎈", start: 182, end: 187, desc: "개념 48~50" },
-                        { textbook: "교과서", start: 165, end: 169, desc: "상대도수 총합 계산" }
-                    ]
-                },
-                {
-                    step_no: 10,
-                    title: "전범위 핵심 공식 점검 & 오답 총정리",
-                    books: [
-                        { textbook: "프린트", start: 1, end: 4, desc: "기말고사 대비 실전 모의고사 25문항" }
-                    ]
-                }
-            ];
-
-            defaultSteps.forEach(st => addRoadmapStepCard(st));
-        }
 
         function addRoadmapStepCard(data = {}) {
             const container = document.getElementById('rm-steps-container');
@@ -1450,6 +1405,8 @@
         }
 
         async function saveRoadmap() {
+            const editInput = document.getElementById('editing-roadmap-id');
+            const editingId = editInput ? editInput.value : '';
             const student_name = currentSelectedStudent;
             const title = document.getElementById('rm-title').value.trim();
             if(!student_name) return alert('학생을 먼저 선택해주세요.');
@@ -1457,6 +1414,15 @@
 
             const stepCards = document.querySelectorAll('.step-card');
             const steps = [];
+
+            // 기존에 체크되어 있던 완료 상태(completed)가 풀리지 않도록 보존
+            let existingSteps = [];
+            if(editingId) {
+                const prevRm = allRoadmaps.find(r => r.id == editingId);
+                if(prevRm) {
+                    try { existingSteps = typeof prevRm.steps === 'string' ? JSON.parse(prevRm.steps) : (prevRm.steps || []); } catch(e) {}
+                }
+            }
 
             stepCards.forEach((card, idx) => {
                 const step_no = idx + 1;
@@ -1479,13 +1445,16 @@
                     }
                 });
 
+                const prevStep = existingSteps.find(s => s.step_no === step_no);
+                const completed = prevStep ? prevStep.completed : false;
+
                 if(stepTitle) {
                     steps.push({
                         step_no,
                         title: stepTitle,
                         books,
-                        completed: false,
-                        memo: ''
+                        completed: completed,
+                        memo: prevStep ? (prevStep.memo || '') : ''
                     });
                 }
             });
@@ -1495,14 +1464,22 @@
             const payload = {
                 student_name,
                 title,
-                steps: JSON.stringify(steps),
-                backlogs: JSON.stringify([])
+                steps: JSON.stringify(steps)
             };
 
-            const { error } = await _supabase.from('roadmaps').insert([payload]);
-            if(error) return alert('로드맵 저장 실패: ' + error.message);
+            if(editingId) {
+                // [기존 로드맵 수정]
+                const { error } = await _supabase.from('roadmaps').update(payload).eq('id', editingId);
+                if(error) return alert('로드맵 수정 실패: ' + error.message);
+                alert('로드맵이 성공적으로 수정되었습니다!');
+            } else {
+                // [새 로드맵 생성]
+                payload.backlogs = JSON.stringify([]);
+                const { error } = await _supabase.from('roadmaps').insert([payload]);
+                if(error) return alert('로드맵 저장 실패: ' + error.message);
+                alert('목표 로드맵이 생성되었습니다!');
+            }
 
-            alert('목표 로드맵이 생성되었습니다!');
             closeRoadmapModal();
             loadData();
         }
