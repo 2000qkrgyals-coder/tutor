@@ -1462,22 +1462,25 @@
                         priorBacklogHtml = '<div class="text-[11px] text-slate-400 italic">이전 밀린 진도 없음 ✨</div>';
                     }
 
-                    // 3열: 실제 수행 상세 내역 (실제 완료한 교재/쪽수 전수 표시)
+                    // 3열: 실제 수행 상세 내역 (일지가 삭제되면 즉시 사라지고 '진행 대기 중'으로 전환)
                     const thisStepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
+                    
+                    // 현재 메모리에 살아있는 유효한 일지만 엄격히 매칭
                     const matchedLogs = allLogs.filter(l => {
-                        if(l.student_name !== rm.student_name) return false;
+                        if(!l.id || l.student_name !== rm.student_name) return false;
                         try {
-                            const info = JSON.parse(l.roadmap_info || '{}');
-                            return (info.roadmap_id == rm.id && String(info.step_no) === String(st.step_no));
+                            const info = typeof l.roadmap_info === 'string' ? JSON.parse(l.roadmap_info || '{}') : (l.roadmap_info || {});
+                            return (String(info.roadmap_id) === String(rm.id) && String(info.step_no) === String(st.step_no));
                         } catch(e) { return false; }
                     });
 
                     let actualStatusHtml = '';
 
+                    // 일지가 삭제되어 matchedLogs가 0건이면 무조건 '진행 대기 중'으로 초기화
                     if(matchedLogs.length > 0) {
                         actualStatusHtml = matchedLogs.map(l => {
                             let pList = [];
-                            try { pList = JSON.parse(l.note || '[]'); } catch(e) {}
+                            try { pList = typeof l.note === 'string' ? JSON.parse(l.note || '[]') : (l.note || []); } catch(e) {}
                             let actualDetails = pList.map(p => `<span class="font-bold text-indigo-700">[${p.textbook}]</span> ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`).join(', ');
                             if(!actualDetails) actualDetails = '진도 기록 없음';
 
@@ -1491,9 +1494,8 @@
                                 </div>
                             `;
                         }).join('');
-                    } else if(st.completed) {
-                        actualStatusHtml = `<div class="bg-emerald-50 text-emerald-800 p-2 rounded-lg font-bold">✓ 정상 완주 완료</div>`;
                     } else {
+                        // 일지가 없으면 무조건 깔끔하게 비움
                         actualStatusHtml = `<div class="text-[11px] text-slate-400 italic p-1">진행 대기 중</div>`;
                     }
 
@@ -2334,6 +2336,9 @@
             if(error) {
                 return alert('일지 삭제 실패: ' + error.message);
             }
+
+            // [추가] 삭제된 일지를 메모리 배열에서 즉시 제거하여 3열 렌더링에 남지 않도록 보장
+            allLogs = allLogs.filter(l => String(l.id) !== String(id));
 
             alert('수업 일지가 삭제되었으며, 로드맵 상태가 정상 복구되었습니다.');
             await loadData();
