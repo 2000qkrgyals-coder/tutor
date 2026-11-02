@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>수학 과외 스마트 관리</title>
+    <title>수학 과외 스마트 관리 플랫폼</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Supabase 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Chart.js 라이브러리 추가 -->
+    <!-- Chart.js 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
 @media print {
@@ -123,7 +123,7 @@
             </button>
         </nav>
 
-        <!-- [신규 탭] 🎯 목표 로드맵 탭 (2열 비교 뷰: 기준 계획 vs 실제 진행 현황) -->
+        <!-- [신규 탭] 🎯 목표 로드맵 탭 (2열 비교 뷰: 기준 계획 vs 실제 상세 이력) -->
         <section id="tab-content-roadmap" class="hidden space-y-6">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
@@ -131,7 +131,7 @@
                         <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
                             <span class="w-2 h-2 rounded-full bg-indigo-600"></span> 목표 로드맵 관리 <span id="selected-student-label-roadmap" class="text-indigo-600 text-xs font-semibold ml-1"></span>
                         </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">좌측 기준 계획과 우측 실제 Live 진행 현황을 나란히 비교하고, 미완료 진도 꼬리표를 추적하세요.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">원래 기준 계획과 실제 완료/밀림/해결 이력을 한눈에 비교하고 관리합니다.</p>
                     </div>
                     <button onclick="openCreateRoadmapModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap">
                         + 새 로드맵 만들기
@@ -222,7 +222,7 @@
                 </div>
             </div>
 
-            <!-- [개선] 로드맵 연계 및 단계 선택 바 (원래 기준 계획 vs 실제 진도 비교 UI) -->
+            <!-- 로드맵 연계 및 단계 선택 바 (원래 기준 계획 vs 실제 진도 비교 UI) -->
             <div class="space-y-3 bg-violet-50/60 p-4 rounded-xl border border-violet-200/80">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <label class="font-bold text-xs text-violet-900 flex items-center gap-1.5">
@@ -404,7 +404,6 @@
                     </button>
                 </div>
 
-                <!-- [신규] PDF 리포트에 포함할 로드맵 다중 선택 및 당월 목표 구간 설정 UI -->
                 <div class="pt-3 border-t border-slate-100 space-y-2">
                     <label class="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
                         <span>🎯</span> 인쇄할 로드맵 선택 및 이번 달 목표 단계 설정 (체크된 로드맵당 1페이지씩 전면 인쇄됩니다)
@@ -487,7 +486,7 @@
                     </div>
                 </div>
 
-                <!-- 2페이지 이후: 각 로드맵별 전면 페이지 컨테이너가 동적으로 삽입됨 -->
+                <!-- 2페이지 이후: 각 로드맵별 전면 페이지 컨테이너 -->
                 <div id="pdf-roadmap-fullpages-container" class="space-y-6"></div>
             </div>
         </section>
@@ -619,7 +618,6 @@
         let currentSelectedStudent = '';
         let currentMainTab = 'write';
 
-        // PDF 리포트에서 사용할 로드맵 선택 상태 { rmId: { selected: true, startStep: 1, endStep: 5 } }
         let pdfRoadmapSelections = {};
 
         let homeworkChartInstance = null;
@@ -629,7 +627,6 @@
         let pdfTestChartInstance = null;
         let pdfReasonChartInstance = null;
 
-        // 페이지 최초 로드 시 로그인 확인
         (async function checkUserSession() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
@@ -1143,13 +1140,11 @@
             container.appendChild(div);
         }
 
-        // [개선] 당일 로드맵 목표 진도 소화율(%) 계산 (체크된 이전 미완료 진도 포함 여부 자동 반영)
         function calculateProgressRate() {
             const rows = document.querySelectorAll('.prog-row');
             let targetTotal = 0;
             let actualTotal = 0;
 
-            // 1. 오늘 정규 진도 계산
             rows.forEach(r => {
                 const tStart = parseInt(r.dataset.targetStart);
                 const tEnd = parseInt(r.dataset.targetEnd);
@@ -1164,7 +1159,6 @@
                 }
             });
 
-            // 2. 오늘 해결하기로 체크한 이전 미완료(이월) 진도 계산 합산
             const backlogRows = document.querySelectorAll('.backlog-check-row');
             backlogRows.forEach(br => {
                 const chk = br.querySelector('.backlog-include-check');
@@ -1192,7 +1186,7 @@
         }
 
         // -------------------------------------------------------------
-        // [신규] 🎯 목표 로드맵 2열 분할 뷰 (기준 계획 vs 실제 진행 현황)
+        // 목표 로드맵 2열 분할 뷰 (기준 계획 vs 실제 완료/밀림/해결 이력)
         // -------------------------------------------------------------
 
         function renderRoadmapView() {
@@ -1229,11 +1223,9 @@
                 const progressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
                 const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
 
-                // 2열 뷰 생성: 좌측 [기준 로드맵 계획] vs 우측 [실제 진행 현황 (Live 이월 추적)]
                 let stepsCompareHtml = steps.map((st) => {
                     const stepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
                     
-                    // 좌측 원래 계획 텍스트
                     let planBooks = (st.books || []).map(b => `
                         <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pl-2">
                             <span>•</span>
@@ -1243,12 +1235,11 @@
                         </div>
                     `).join('');
 
-                    // 우측 실제 수행 상태 텍스트
                     let actualStatusHtml = '';
                     if(st.completed) {
                         actualStatusHtml = `
                             <div class="bg-emerald-50 text-emerald-800 p-2 rounded-lg font-bold flex items-center justify-between">
-                                <span>✓ 정상 완료 완료</span>
+                                <span>✓ 정상 완료</span>
                                 <span class="text-[10px] bg-emerald-200 px-1.5 py-0.5 rounded">Completed</span>
                             </div>
                         `;
@@ -1268,7 +1259,6 @@
 
                     return `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 text-xs">
-                            <!-- 좌측: 원래 기준 계획 -->
                             <div class="space-y-1.5 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-3">
                                 <div class="font-extrabold text-slate-800 flex items-center justify-between">
                                     <span class="flex items-center gap-1.5">
@@ -1278,7 +1268,6 @@
                                 </div>
                                 <div class="space-y-0.5">${planBooks}</div>
                             </div>
-                            <!-- 우측: 실제 Live 진행 상태 -->
                             <div class="space-y-1.5 flex flex-col justify-center">
                                 <div class="text-[11px] font-bold text-slate-500">실제 수행 및 이월 추적:</div>
                                 ${actualStatusHtml}
@@ -1303,18 +1292,15 @@
                             </div>
                         </div>
 
-                        <!-- 전체 누적 달성률 바 -->
                         <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                             <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${progressRate}%;"></div>
                         </div>
 
-                        <!-- 2열 비교 뷰 헤더 -->
                         <div class="hidden md:grid grid-cols-2 gap-3 text-xs font-extrabold text-slate-500 px-2">
                             <div>📋 원래 기준 커리큘럼 계획</div>
                             <div>🚀 실제 수행 결과 & 미완료 이월 추적</div>
                         </div>
 
-                        <!-- 2열 비교 카드 목록 -->
                         <div class="space-y-2.5 pt-1">
                             ${stepsCompareHtml}
                         </div>
@@ -1514,7 +1500,7 @@
         }
 
         // -------------------------------------------------------------
-        // 일지 작성 화면에서 로드맵 단계 및 이월 진도 불러오기 연계
+        // 일지 작성/수정 화면에서 로드맵 단계 및 이월 진도 불러오기 연계
         // -------------------------------------------------------------
 
         function updateLogRoadmapOptions() {
@@ -1530,7 +1516,7 @@
             onLogRoadmapChange();
         }
 
-        function onLogRoadmapChange() {
+        function onLogRoadmapChange(preserveStep = null) {
             const rmId = document.getElementById('log-roadmap-select').value;
             const stepSelect = document.getElementById('log-roadmap-step-select');
             const previewBox = document.getElementById('roadmap-plan-preview-box');
@@ -1559,7 +1545,11 @@
             });
             stepSelect.classList.remove('hidden');
 
-            // 미해결 이월 진도만 추출하여 일지 작성창에 노출
+            if(preserveStep) {
+                stepSelect.value = preserveStep;
+            }
+
+            // 미해결 이월 진도만 체크박스 리스트로 노출
             const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
             if(activeBacklogs.length > 0) {
                 backlogList.innerHTML = activeBacklogs.map((b, idx) => {
@@ -1592,7 +1582,6 @@
             }
         }
 
-        // [개선] 로드맵 단계 선택 시: 원래 기준 계획은 고정 프리뷰로 띄우고, 실제 진도 입력란은 편집 가능하게 렌더링
         function applyRoadmapStepToProgress() {
             const rmId = document.getElementById('log-roadmap-select').value;
             const stepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
@@ -1611,7 +1600,6 @@
             const targetStep = steps.find(s => s.step_no === stepNo);
             if(!targetStep) return;
 
-            // 1. 기준 계획 안내 박스 렌더링 (Read-only)
             previewItems.innerHTML = (targetStep.books || []).map(b => `
                 <div class="flex items-center gap-2 pl-2">
                     <span class="text-violet-600 font-bold">• [${b.textbook}]</span>
@@ -1621,7 +1609,6 @@
             `).join('');
             previewBox.classList.remove('hidden');
 
-            // 2. 실제 나간 진도 입력창에 기본값 세팅
             const progContainer = document.getElementById('progress-container');
             progContainer.innerHTML = '';
 
@@ -1641,7 +1628,7 @@
         }
 
         // -------------------------------------------------------------
-        // 수업 일지 저장: 미완료 쪽수 자동 분할 이월 & 카톡 소화율 저장
+        // 일지 저장: 미완료 쪽수 자동 분할 이월 & 카톡 소화율 저장
         // -------------------------------------------------------------
 
         async function saveLog() {
@@ -1687,7 +1674,6 @@
                 homeworkCheckList.push({ textbook, desc, start, end, total_pages, done_pages, rate });
             });
 
-            // 실제 나간 진도 및 미완료 쪽수 분할 감지
             const progressRows = document.querySelectorAll('.prog-row');
             const progressList = [];
             const newBacklogs = [];
@@ -1702,7 +1688,7 @@
 
                 progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
 
-                // 원래 목표보다 덜 나간 경우 구체적 쪽수(예: 4~5p)를 꼬리표 달아 미완료 목록으로 생성
+                // 원래 목표보다 덜 나간 경우 구체적 쪽수를 꼬리표 달아 미완료 목록으로 생성
                 if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
                     const uncompletedStart = parseInt(actualEnd) + 1;
                     const uncompletedEnd = parseInt(targetEnd);
@@ -1729,7 +1715,6 @@
                 });
             });
 
-            // 당일 로드맵 진도 소화율 계산
             const rateCalc = calculateProgressRate();
             const roadmapProgressRate = rateCalc ? rateCalc.rate : null;
             const roadmapTargetDetail = rateCalc ? `목표 ${rateCalc.targetTotal}p 중 ${rateCalc.actualTotal}p 소화 (${rateCalc.rate}%)` : '';
@@ -1744,13 +1729,13 @@
                     let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
                     let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
 
-                    // 오늘 체크되어 해결된 이전 미완료 진도: 삭제하지 않고 status: 'resolved'로 기록 보존
+                    // 체크되어 오늘 해결된 이전 미완료 항목: 삭제하지 않고 status: 'resolved' 처리
                     const backlogRows = document.querySelectorAll('.backlog-check-row');
                     backlogRows.forEach(br => {
                         const chk = br.querySelector('.backlog-include-check');
                         const bid = chk ? chk.dataset.bid : null;
                         if(chk && chk.checked && bid) {
-                            const found = backlogs.find(b => (b.id && b.id === bid));
+                            const found = backlogs.find(b => (b.id && String(b.id) === String(bid)));
                             if(found) {
                                 found.status = 'resolved';
                                 found.resolved_date = date;
@@ -1808,10 +1793,11 @@
             }
 
             resetLogForm();
-            loadData();
+            await loadData();
             switchMainTab('history');
         }
 
+        // [핵심 개선] 일지 수정 시 기존 로드맵 선택 상태 자동 복원
         function editLog(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -1830,6 +1816,17 @@
             document.getElementById('log-feedback').value = log.feedback_note || '';
 
             updateDailyTestNameTitle();
+
+            // 일지에 저장되어 있던 로드맵 정보 자동 선택 복원
+            let rmInfo = {};
+            try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
+            if(rmInfo.roadmap_id) {
+                document.getElementById('log-roadmap-select').value = rmInfo.roadmap_id;
+                onLogRoadmapChange(rmInfo.step_no);
+            } else {
+                document.getElementById('log-roadmap-select').value = '';
+                onLogRoadmapChange();
+            }
 
             document.getElementById('daily-test-container').innerHTML = '';
             try {
@@ -1910,6 +1907,8 @@
             document.getElementById('progress-rate-box').classList.add('hidden');
             document.getElementById('roadmap-plan-preview-box').classList.add('hidden');
             document.getElementById('backlog-container').classList.add('hidden');
+            document.getElementById('log-roadmap-select').value = '';
+            onLogRoadmapChange();
             addProgressRow();
             addHomeworkRow();
 
@@ -1926,10 +1925,7 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // [개선] 카카오톡 스크립트: 당일 로드맵 목표 대비 진도 소화율(%) 자동 연동
-        // -------------------------------------------------------------
-
+        // 카카오톡 스크립트: 당일 로드맵 목표 대비 진도 소화율(%) 자동 연동
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -2008,7 +2004,6 @@
                 feedbackStr = `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}`;
             }
 
-            // 오늘 로드맵 목표 대비 당일 진도 소화율(%) 멘트 생성
             let roadmapStatusStr = '';
             let rmInfo = {};
             try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
@@ -2318,10 +2313,7 @@
             renderCharts(labels, homeworkRates, testRates, reasonCounts);
         }
 
-        // -------------------------------------------------------------
-        // [대개편] PDF 리포트: 1P 종합 통계 & 2P 이후 로드맵 전면 페이지 출력
-        // -------------------------------------------------------------
-
+        // PDF 리포트: 1P 종합 통계 & 2P 이후 로드맵 전면 페이지 출력
         function initPdfRoadmapSelections() {
             const container = document.getElementById('pdf-roadmap-selector-container');
             if(!container) return;
@@ -2391,7 +2383,6 @@
             document.getElementById('pdf-report-month-text').innerText = `${year}년 ${parseInt(month)}월`;
             document.getElementById('pdf-report-print-date').innerText = new Date().toISOString().substring(0, 10);
 
-            // 1페이지 종합 통계 계산
             const targetLogs = allLogs.filter(l => {
                 if (currentSelectedStudent && l.student_name !== currentSelectedStudent) return false;
                 if (!l.date || !l.date.startsWith(targetYM)) return false;
@@ -2479,8 +2470,6 @@
             }
 
             renderPdfCharts(labels, homeworkRates, testRates, reasonCounts);
-
-            // [핵심] 2페이지 이후: 각 로드맵별 전면 풀페이지 렌더링
             renderPdfRoadmapFullPages(year, month);
         }
 
@@ -2504,7 +2493,6 @@
                 const completedSteps = steps.filter(s => s.completed).length;
                 const totalProgressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-                // 이달의 지정 목표 구간 달성률 계산
                 const sStep = Math.max(1, config.startStep);
                 const eStep = Math.min(totalSteps, config.endStep);
                 const targetSlice = steps.filter(s => s.step_no >= sStep && s.step_no <= eStep);
@@ -2512,7 +2500,6 @@
                 const targetSliceTotal = targetSlice.length;
                 const targetSliceRate = targetSliceTotal > 0 ? Math.round((targetSliceCompleted / targetSliceTotal) * 100) : 0;
 
-                // 세부 커리큘럼 테이블 행 생성
                 let rowsHtml = steps.map(st => {
                     const isInMonth = (st.step_no >= sStep && st.step_no <= eStep);
                     const stepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
@@ -2528,7 +2515,6 @@
                         resultBadge = '<span class="bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded text-[10px]">진행 예정</span>';
                     }
 
-                    // 과거 미완료 이력 및 해결 여부 상세 출력
                     let historyDetail = '';
                     if(stepBacklogs.length > 0) {
                         historyDetail = stepBacklogs.map(b => `
@@ -2554,7 +2540,6 @@
 
                 container.innerHTML += `
                     <div class="pdf-page-container bg-white rounded-2xl shadow-sm border border-slate-200/80 space-y-6">
-                        <!-- 로드맵 헤더 -->
                         <div class="border-b-2 border-indigo-600 pb-4 flex justify-between items-end">
                             <div>
                                 <span class="text-xs font-semibold text-indigo-600">목표 로드맵 심층 리포트 (Page ${pageIndex})</span>
@@ -2566,7 +2551,6 @@
                             </div>
                         </div>
 
-                        <!-- 2중 달성률 요약 박스 -->
                         <div class="grid grid-cols-2 gap-4">
                             <div class="bg-violet-50/70 p-4 rounded-xl border border-violet-200 text-center space-y-1">
                                 <span class="text-xs font-bold text-violet-700">전체 커리큘럼 누적 달성률</span>
@@ -2586,7 +2570,6 @@
                             </div>
                         </div>
 
-                        <!-- 전체 커리큘럼 상세 테이블 -->
                         <div class="space-y-2">
                             <h3 class="text-sm font-bold text-slate-800 border-l-4 border-indigo-600 pl-2">📋 상세 커리큘럼 이행 및 이월 보완 히스토리</h3>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
