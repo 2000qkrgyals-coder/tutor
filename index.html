@@ -86,7 +86,7 @@
         <header class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
             <div>
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
-                    <span>📚</span> 수학 과외 스마트 관리
+                    <span>📚</span> 수학 과외 스마트 관리 플랫폼
                 </h1>
                 <p class="text-indigo-100 text-xs mt-1">단계별 목표 로드맵, 미완료 이월 진도, 데일리테스트 및 통계를 스마트하게 관리하세요.</p>
             </div>
@@ -123,7 +123,7 @@
             </button>
         </nav>
 
-        <!-- [신규 탭] 🎯 목표 로드맵 탭 (2열 비교 뷰: 기준 계획 vs 실제 상세 이력) -->
+        <!-- [신규 탭] 🎯 목표 로드맵 탭 (3열 비교 뷰: 기준 계획 vs 이전 이월분 vs 실제 수행/해결 이력) -->
         <section id="tab-content-roadmap" class="hidden space-y-6">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
@@ -131,7 +131,7 @@
                         <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
                             <span class="w-2 h-2 rounded-full bg-indigo-600"></span> 목표 로드맵 관리 <span id="selected-student-label-roadmap" class="text-indigo-600 text-xs font-semibold ml-1"></span>
                         </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">원래 기준 계획과 실제 완료/밀림/해결 이력을 한눈에 비교하고 관리합니다.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">원래 기준 계획, 이전 단계 누적 이월분, 실제 수행 쪽수 및 해결 일시가 투명하게 기록됩니다.</p>
                     </div>
                     <button onclick="openCreateRoadmapModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap">
                         + 새 로드맵 만들기
@@ -1140,11 +1140,13 @@
             container.appendChild(div);
         }
 
+        // [개선] 당일 로드맵 목표 진도 소화율(%) 계산 (체크된 이전 미완료 진도 포함 여부 자동 반영)
         function calculateProgressRate() {
             const rows = document.querySelectorAll('.prog-row');
             let targetTotal = 0;
             let actualTotal = 0;
 
+            // 1. 오늘 정규 진도 계산
             rows.forEach(r => {
                 const tStart = parseInt(r.dataset.targetStart);
                 const tEnd = parseInt(r.dataset.targetEnd);
@@ -1159,6 +1161,7 @@
                 }
             });
 
+            // 2. 오늘 해결하기로 체크한 이전 미완료(이월) 진도 계산 합산
             const backlogRows = document.querySelectorAll('.backlog-check-row');
             backlogRows.forEach(br => {
                 const chk = br.querySelector('.backlog-include-check');
@@ -1186,7 +1189,7 @@
         }
 
         // -------------------------------------------------------------
-        // 목표 로드맵 2열 분할 뷰 (기준 계획 vs 실제 완료/밀림/해결 이력)
+        // [신규] 🎯 목표 로드맵 3열 분할 뷰 (기준 계획 vs 이전 누적 이월분 vs 실제 수행/해결 이력)
         // -------------------------------------------------------------
 
         function renderRoadmapView() {
@@ -1223,11 +1226,11 @@
                 const progressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
                 const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
 
+                // 3열 분할 뷰: [기준 목표 계획] vs [이전 단계 누적 이월분] vs [실제 수행 결과 & 해결 일시]
                 let stepsCompareHtml = steps.map((st) => {
-                    const stepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
-                    
+                    // 1. 기준 목표 교재 텍스트
                     let planBooks = (st.books || []).map(b => `
-                        <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pl-2">
+                        <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pl-1">
                             <span>•</span>
                             <span class="font-bold text-slate-700">[${b.textbook}]</span>
                             <span>${b.start}~${b.end}p</span>
@@ -1235,30 +1238,66 @@
                         </div>
                     `).join('');
 
-                    let actualStatusHtml = '';
-                    if(st.completed) {
-                        actualStatusHtml = `
-                            <div class="bg-emerald-50 text-emerald-800 p-2 rounded-lg font-bold flex items-center justify-between">
-                                <span>✓ 정상 완료</span>
-                                <span class="text-[10px] bg-emerald-200 px-1.5 py-0.5 rounded">Completed</span>
-                            </div>
-                        `;
-                    } else if(stepBacklogs.length > 0) {
-                        const bDetails = stepBacklogs.map(b => `
-                            <div class="text-[11px] p-1.5 rounded bg-rose-50 border border-rose-200 text-rose-900 flex justify-between items-center">
-                                <span>⚠️ <b>${b.textbook}</b> ${b.uncompleted_range}p 미완료 ${b.desc ? '('+b.desc+')' : ''}</span>
-                                <span class="text-[10px] ${b.status === 'resolved' ? 'bg-emerald-100 text-emerald-700 font-bold' : 'bg-rose-200 text-rose-800 font-extrabold'} px-1.5 py-0.5 rounded">
-                                    ${b.status === 'resolved' ? '해결완료 ✓' : '미완료 잔여'}
+                    // 2. 이전 단계(1 ~ st.step_no-1)에서 발생한 미완료 이월분 추출
+                    const priorBacklogs = backlogs.filter(b => parseInt(b.step_no) < parseInt(st.step_no));
+                    let priorBacklogHtml = '';
+                    if(priorBacklogs.length > 0) {
+                        priorBacklogHtml = priorBacklogs.map(b => `
+                            <div class="text-[10px] p-1.5 rounded border ${b.status === 'resolved' ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-rose-50 border-rose-200 text-rose-800'} flex justify-between items-center">
+                                <span>[${b.step_no}단계 출처] <b>${b.textbook}</b> ${b.uncompleted_range}p</span>
+                                <span class="px-1 py-0.2 rounded font-extrabold text-[9px] ${b.status === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-200 text-rose-700'}">
+                                    ${b.status === 'resolved' ? '해결됨 ✓' : '미완료 잔여'}
                                 </span>
                             </div>
                         `).join('');
-                        actualStatusHtml = `<div class="space-y-1">${bDetails}</div>`;
                     } else {
-                        actualStatusHtml = `<div class="text-[11px] text-slate-400 italic p-1">진행 예정 / 대기 중</div>`;
+                        priorBacklogHtml = '<div class="text-[11px] text-slate-400 italic">이전 밀린 진도 없음 (청정 상태 ✨)</div>';
+                    }
+
+                    // 3. 실제 수행 및 해결 일시 표기
+                    const thisStepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
+                    let actualStatusHtml = '';
+
+                    // 해당 단계 수업 일지 조회 (수업 날짜 및 회차 자동 매칭)
+                    const matchedLog = allLogs.find(l => {
+                        if(l.student_name !== rm.student_name) return false;
+                        try {
+                            const info = JSON.parse(l.roadmap_info || '{}');
+                            return (info.roadmap_id == rm.id && info.step_no == st.step_no);
+                        } catch(e) { return false; }
+                    });
+
+                    let sessionTag = matchedLog ? `<span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">📅 ${matchedLog.date} (${matchedLog.session_number || '수업'}회차)</span>` : '';
+
+                    if(st.completed) {
+                        actualStatusHtml = `
+                            <div class="space-y-1">
+                                <div class="bg-emerald-50 text-emerald-800 p-2 rounded-lg font-bold flex items-center justify-between">
+                                    <span>✓ 전범위 완주 완료</span>
+                                    ${sessionTag}
+                                </div>
+                            </div>
+                        `;
+                    } else if(thisStepBacklogs.length > 0) {
+                        const bDetails = thisStepBacklogs.map(b => `
+                            <div class="text-[11px] p-1.5 rounded bg-rose-50 border border-rose-200 text-rose-900 space-y-0.5">
+                                <div class="flex justify-between items-center font-bold">
+                                    <span>⚠️ ${b.textbook} ${b.uncompleted_range}p 미완료 발생</span>
+                                    <span class="text-[9px] ${b.status === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-200 text-rose-800'} px-1.5 py-0.5 rounded font-black">
+                                        ${b.status === 'resolved' ? '해결완료 ✓' : '다음 단계로 이월'}
+                                    </span>
+                                </div>
+                                ${b.status === 'resolved' && b.resolved_date ? `<div class="text-[10px] text-emerald-700 font-semibold">• ${b.resolved_date} 수업에서 보완 완료됨</div>` : ''}
+                            </div>
+                        `).join('');
+                        actualStatusHtml = `<div class="space-y-1">${sessionTag ? '<div class="pb-1">'+sessionTag+'</div>' : ''}${bDetails}</div>`;
+                    } else {
+                        actualStatusHtml = `<div class="text-[11px] text-slate-400 italic p-1">진행 대기 중</div>`;
                     }
 
                     return `
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 text-xs">
+                            <!-- 1열: 기준 목표 계획 -->
                             <div class="space-y-1.5 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-3">
                                 <div class="font-extrabold text-slate-800 flex items-center justify-between">
                                     <span class="flex items-center gap-1.5">
@@ -1268,8 +1307,16 @@
                                 </div>
                                 <div class="space-y-0.5">${planBooks}</div>
                             </div>
+
+                            <!-- 2열: 이전 단계 누적 이월분 -->
+                            <div class="space-y-1.5 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-3 flex flex-col justify-center">
+                                <div class="text-[11px] font-extrabold text-slate-600">이전 단계 누적 이월분:</div>
+                                <div class="space-y-1">${priorBacklogHtml}</div>
+                            </div>
+
+                            <!-- 3열: 실제 수행 결과 & 해결 일시 -->
                             <div class="space-y-1.5 flex flex-col justify-center">
-                                <div class="text-[11px] font-bold text-slate-500">실제 수행 및 이월 추적:</div>
+                                <div class="text-[11px] font-extrabold text-slate-600">실제 수행 및 해결 이력:</div>
                                 ${actualStatusHtml}
                             </div>
                         </div>
@@ -1296,9 +1343,10 @@
                             <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${progressRate}%;"></div>
                         </div>
 
-                        <div class="hidden md:grid grid-cols-2 gap-3 text-xs font-extrabold text-slate-500 px-2">
-                            <div>📋 원래 기준 커리큘럼 계획</div>
-                            <div>🚀 실제 수행 결과 & 미완료 이월 추적</div>
+                        <div class="hidden md:grid grid-cols-3 gap-3 text-xs font-extrabold text-slate-500 px-2">
+                            <div>📋 1. 원래 기준 커리큘럼 계획</div>
+                            <div>⚠️ 2. 이전 단계 누적 이월분</div>
+                            <div>🚀 3. 실제 수행 및 해결 이력</div>
                         </div>
 
                         <div class="space-y-2.5 pt-1">
@@ -1549,7 +1597,7 @@
                 stepSelect.value = preserveStep;
             }
 
-            // 미해결 이월 진도만 체크박스 리스트로 노출
+            // [핵심] 아직 해결되지 않은(status !== 'resolved') 미완료 진도만 필터링하여 일지 작성창에 노출
             const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
             if(activeBacklogs.length > 0) {
                 backlogList.innerHTML = activeBacklogs.map((b, idx) => {
@@ -1628,7 +1676,7 @@
         }
 
         // -------------------------------------------------------------
-        // 일지 저장: 미완료 쪽수 자동 분할 이월 & 카톡 소화율 저장
+        // 일지 저장: 미완료 쪽수 자동 분할 이월 & 해결 상태 영구 저장
         // -------------------------------------------------------------
 
         async function saveLog() {
@@ -2274,15 +2322,12 @@
                         hwRateSum += 100;
                         hwCount++;
                     }
-                } catch(e) {
-                    homeworkRates.push(100);
-                    hwRateSum += 100;
-                    hwCount++;
-                }
+                } catch(e) {}
 
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
                     if (dtObj.total !== undefined && dtObj.total > 0) {
+                        hasTestRecord = true;
                         const rate = Math.round((dtObj.correct / dtObj.total) * 100);
                         testRates.push(rate);
                         testRateSum += rate;
