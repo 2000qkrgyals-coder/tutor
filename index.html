@@ -2150,6 +2150,122 @@
             document.getElementById('log-cancel-btn').classList.add('hidden');
         }
 
+        // [복구] 수업 일지 수정 모드 진입 및 데이터 복원 함수
+        function editLog(id) {
+            const log = allLogs.find(l => l.id == id);
+            if(!log) return;
+
+            currentSelectedStudent = log.student_name;
+            renderStudentTabs();
+            applyStudentSelection();
+
+            document.getElementById('editing-log-id').value = log.id;
+            document.getElementById('log-student').value = log.student_name;
+            document.getElementById('log-date').value = log.date || '';
+            document.getElementById('log-session').value = log.session_number || '';
+            document.getElementById('log-start-time').value = log.start_time || '';
+            document.getElementById('log-end-time').value = log.end_time || '';
+            document.getElementById('log-concentration').value = log.concentration || '상';
+            document.getElementById('log-feedback').value = log.feedback_note || '';
+
+            updateDailyTestNameTitle();
+
+            // 1. 해당 일지에 저장되어 있던 로드맵 및 단계, 해결했던 미완료 목록 복원
+            let rmInfo = {};
+            try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
+            if(rmInfo.roadmap_id) {
+                document.getElementById('log-roadmap-select').value = rmInfo.roadmap_id;
+                onLogRoadmapChange(rmInfo.step_no, rmInfo.resolved_bids || []);
+            } else {
+                document.getElementById('log-roadmap-select').value = '';
+                onLogRoadmapChange();
+            }
+
+            // 2. 데일리테스트 복원
+            document.getElementById('daily-test-container').innerHTML = '';
+            try {
+                const dtObj = JSON.parse(log.daily_test || '{}');
+                document.getElementById('dt-total-questions').value = dtObj.total !== undefined ? dtObj.total : '';
+                document.getElementById('dt-correct-questions').value = dtObj.correct !== undefined ? dtObj.correct : '';
+                if (Array.isArray(dtObj.wrongs) && dtObj.wrongs.length > 0) {
+                    dtObj.wrongs.forEach(w => addDailyTestRow(w));
+                } else {
+                    document.getElementById('daily-test-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-1">틀린 문제가 있다면 오답 원인과 함께 추가해주세요.</p>';
+                }
+            } catch(e) {
+                document.getElementById('dt-total-questions').value = '';
+                document.getElementById('dt-correct-questions').value = '';
+                document.getElementById('daily-test-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-1">틀린 문제가 있다면 오답 원인과 함께 추가해주세요.</p>';
+            }
+
+            // 3. 숙제 검사 목록 복원
+            let checkList = [];
+            try { checkList = JSON.parse(log.homework_check || '[]'); } catch(e) {}
+            if (checkList.length > 0) {
+                const container = document.getElementById('homework-check-container');
+                container.innerHTML = '';
+                checkList.forEach(item => {
+                    renderHomeworkCheckRow(item);
+                });
+                document.getElementById('total-rate-box').classList.remove('hidden');
+                calculateOverallRate();
+            } else {
+                document.getElementById('homework-check-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-2">저장된 숙제 검사 내역이 없습니다.</p>';
+                document.getElementById('total-rate-box').classList.add('hidden');
+            }
+
+            // 4. 실제 나간 진도 목록 복원
+            const progContainer = document.getElementById('progress-container');
+            progContainer.innerHTML = '';
+            let progressList = [];
+            try { progressList = JSON.parse(log.note || '[]'); } catch(e) {}
+
+            const targetRm = allRoadmaps.find(r => r.id == rmInfo.roadmap_id);
+            let rmSteps = [];
+            if(targetRm) {
+                try { rmSteps = typeof targetRm.steps === 'string' ? JSON.parse(targetRm.steps) : (targetRm.steps || []); } catch(e) {}
+            }
+            const currentStepObj = rmSteps.find(s => s.step_no == rmInfo.step_no);
+
+            if (progressList.length > 0) {
+                progressList.forEach((p, pIdx) => {
+                    const matchedBook = currentStepObj && currentStepObj.books ? currentStepObj.books[pIdx] : null;
+                    addProgressRow({
+                        textbook: p.textbook,
+                        start: p.start,
+                        end: p.end,
+                        target_start: matchedBook ? matchedBook.start : p.start,
+                        target_end: matchedBook ? matchedBook.end : p.end,
+                        step_no: rmInfo.step_no || '',
+                        desc: p.desc
+                    });
+                });
+            }
+
+            // 5. 숙제 부여 목록 복원
+            const hwContainer = document.getElementById('homework-container');
+            hwContainer.innerHTML = '';
+            let homeworkList = [];
+            try { homeworkList = JSON.parse(log.homework_note || '[]'); } catch(e) {}
+            if (homeworkList.length > 0) {
+                homeworkList.forEach(h => addHomeworkRow(h));
+            } else {
+                addHomeworkRow();
+            }
+
+            // 6. UI 수정 모드로 전환
+            document.getElementById('log-form-title').innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-600"></span> 수업 일지 수정';
+            document.getElementById('log-submit-btn').innerText = '일지 수정 완료';
+            document.getElementById('log-submit-btn').className = 'w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl text-sm font-bold shadow-md transition-all';
+            document.getElementById('log-cancel-btn').classList.remove('hidden');
+
+            calculateProgressRate();
+
+            // 7. 작성 탭으로 전환 및 화면 최상단 이동
+            switchMainTab('write');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
         async function deleteLog(id) {
             if(confirm('이 수업 일지를 삭제하시겠습니까?')) {
                 await _supabase.from('logs').delete().eq('id', id);
