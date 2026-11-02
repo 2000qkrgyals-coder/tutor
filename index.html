@@ -86,7 +86,7 @@
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
                     <span>📚</span> 수학 과외 스마트 관리
                 </h1>
-                <p class="text-indigo-100 text-xs mt-1">탭을 이동하며 진도, 교재, 숙제 이행률 및 통계를 스마트하게 관리하세요.</p>
+                <p class="text-indigo-100 text-xs mt-1">탭을 이동하며 진도, 교재, 숙제 이행률, 목표 로드맵 및 통계를 스마트하게 관리하세요.</p>
             </div>
             <div class="flex items-center gap-3">
                 <div id="header-student-badge" class="bg-white/15 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-medium border border-white/20">
@@ -96,27 +96,54 @@
             </div>
         </header>
 
-        <!-- 스마트 메인 내비게이션 탭 -->
+        <!-- 스마트 메인 내비게이션 탭 (로드맵 탭 추가) -->
         <nav class="flex flex-wrap bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/80 gap-1.5 no-print">
-            <button onclick="switchMainTab('write')" id="nav-btn-write" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm">
+            <button onclick="switchMainTab('write')" id="nav-btn-write" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm">
                 📝 수업 일지
             </button>
-            <button onclick="switchMainTab('management')" id="nav-btn-management" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+            <button onclick="switchMainTab('roadmap')" id="nav-btn-roadmap" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+                🎯 로드맵
+            </button>
+            <button onclick="switchMainTab('management')" id="nav-btn-management" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
                 👥 학생·교재
             </button>
-            <button onclick="switchMainTab('statistics')" id="nav-btn-statistics" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+            <button onclick="switchMainTab('statistics')" id="nav-btn-statistics" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
                 📊 월별 통계
             </button>
-            <button onclick="switchMainTab('pdf-report')" id="nav-btn-pdf-report" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+            <button onclick="switchMainTab('pdf-report')" id="nav-btn-pdf-report" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
                 🖨️ PDF 리포트
             </button>
-            <button onclick="switchMainTab('history')" id="nav-btn-history" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+            <button onclick="switchMainTab('history')" id="nav-btn-history" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
                 📂 일지 조회
             </button>
-            <button onclick="switchMainTab('backup')" id="nav-btn-backup" class="flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
+            <button onclick="switchMainTab('backup')" id="nav-btn-backup" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50">
                 💾 백업·복구
             </button>
         </nav>
+
+        <!-- [신규 탭] 🎯 목표 로드맵 탭 -->
+        <section id="tab-content-roadmap" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                            <span class="w-2 h-2 rounded-full bg-indigo-600"></span> 목표 로드맵 관리 <span id="selected-student-label-roadmap" class="text-indigo-600 text-xs font-semibold ml-1"></span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">기말 대비 벼락치기나 방학 선행 계획을 등록하고, 수업 회차별 완료 상태를 체크하세요.</p>
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button onclick="openCreateRoadmapModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap">
+                            + 새 목표 계획 생성
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 등록된 로드맵 카드 컨테이너 -->
+                <div id="roadmap-list-container" class="space-y-6">
+                    <p class="text-xs text-slate-400 text-center py-6">선택된 학생에게 등록된 로드맵이 없습니다. [+ 새 목표 계획 생성]을 눌러주세요.</p>
+                </div>
+            </div>
+        </section>
 
         <!-- [탭 1] 수업 일지 작성/수정 탭 -->
         <section id="tab-content-write" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-5">
@@ -331,7 +358,7 @@
             </div>
         </section>
 
-        <!-- [탭 4] 월별 PDF 인쇄 및 리포트 탭 -->
+        <!-- [탭 4] 월별 PDF 인쇄 및 리포트 탭 (로드맵 섹션 추가) -->
         <section id="tab-content-pdf-report" class="hidden space-y-4">
             <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 no-print">
                 <div class="flex items-center gap-2">
@@ -372,6 +399,16 @@
                             <p class="text-[11px] text-slate-500 font-medium">테스트 평균 정답률</p>
                             <p class="text-base sm:text-lg font-black text-rose-600"><span id="pdf-stat-test">미실시</span></p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- [신규] PDF 리포트 내 로드맵 달성 현황 섹션 -->
+                <div id="pdf-roadmap-section" class="page-break-avoid bg-violet-50/60 p-4 rounded-xl border border-violet-100 space-y-2">
+                    <h3 class="text-sm font-bold text-violet-900 flex items-center gap-1.5">
+                        <span>🎯</span> 중점 목표 로드맵 진행 현황
+                    </h3>
+                    <div id="pdf-roadmap-content" class="text-xs space-y-2 text-slate-700">
+                        <p class="text-slate-400">설정된 목표 로드맵이 없습니다.</p>
                     </div>
                 </div>
 
@@ -445,7 +482,7 @@
                 <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
                     <span class="w-2 h-2 rounded-full bg-orange-600"></span> 데이터 백업 및 복구 관리
                 </h2>
-                <p class="text-xs text-slate-500 mt-1">서버에 저장된 모든 학생, 교재, 수업 일지 데이터를 안전하게 백업하거나 파일로부터 복구할 수 있습니다.</p>
+                <p class="text-xs text-slate-500 mt-1">서버에 저장된 모든 학생, 교재, 수업 일지 및 로드맵 데이터를 안전하게 백업하거나 복구할 수 있습니다.</p>
             </div>
 
             <!-- 백업 다운로드 카드 -->
@@ -454,7 +491,7 @@
                     <span>💾</span> 데이터 백업 파일 다운로드
                 </h3>
                 <p class="text-xs text-slate-600 leading-relaxed">
-                    현재 플랫폼에 저장된 모든 데이터를 내 컴퓨터나 스마트폰에 JSON 파일로 다운로드합니다. 정기적으로 백업해 두면 데이터 유실을 방지할 수 있습니다.
+                    현재 플랫폼에 저장된 모든 데이터를 내 컴퓨터나 스마트폰에 JSON 파일로 다운로드합니다. 로드맵 데이터도 함께 백업됩니다.
                 </p>
                 <button onclick="exportDataToJson()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5">
                     <span>📥</span> 백업 파일(.json) 다운로드하기
@@ -481,6 +518,42 @@
 
     </div>
 
+    <!-- 로드맵 생성/수정 모달 -->
+    <div id="roadmap-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                    <span>🎯</span> 목표 로드맵 등록
+                </h3>
+                <button onclick="closeRoadmapModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">×</button>
+            </div>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">목표 계획 제목</label>
+                    <input type="text" id="rm-title" placeholder="예: 중1-2 기말 단기 완주 (베이직쎈)" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div class="flex justify-between items-center pt-2">
+                    <label class="text-xs font-bold text-slate-700">회차별 학습 계획 리스트</label>
+                    <div class="flex gap-1.5">
+                        <button type="button" onclick="loadDefaultExamPlanTemplate()" class="bg-violet-50 hover:bg-violet-100 text-violet-700 text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-violet-200">⚡ 1-2 기말 10회 템플릿 불러오기</button>
+                        <button type="button" onclick="addRoadmapModalItemRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] px-2.5 py-1.5 rounded-lg font-bold">+ 회차 추가</button>
+                    </div>
+                </div>
+
+                <div id="rm-modal-items-container" class="space-y-2">
+                    <!-- 회차 항목들이 렌더링됨 -->
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t border-slate-100">
+                <button onclick="saveRoadmap()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all">로드맵 저장하기</button>
+                <button onclick="closeRoadmapModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all">취소</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 카톡 스크립트 모달 -->
     <div id="kakao-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100">
@@ -491,7 +564,7 @@
                 <button onclick="closeKakaoModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">×</button>
             </div>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <textarea id="kakao-script-text" rows="12" class="w-full bg-transparent text-xs sm:text-sm text-slate-700 focus:outline-none resize-none leading-relaxed"></textarea>
+                <textarea id="kakao-script-text" rows="13" class="w-full bg-transparent text-xs sm:text-sm text-slate-700 focus:outline-none resize-none leading-relaxed"></textarea>
             </div>
             <div class="flex gap-2">
                 <button onclick="copyKakaoScript()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all">📋 카톡 내용 복사하기</button>
@@ -510,6 +583,7 @@
         let allStudents = [];
         let allTextbooks = [];
         let allLogs = [];
+        let allRoadmaps = []; // 신규 로드맵 데이터 배열
         let currentSelectedStudent = '';
         let currentMainTab = 'write';
 
@@ -576,16 +650,16 @@
 
         function switchMainTab(tabKey) {
             currentMainTab = tabKey;
-            ['write', 'management', 'statistics', 'pdf-report', 'history', 'backup'].forEach(key => {
+            ['write', 'roadmap', 'management', 'statistics', 'pdf-report', 'history', 'backup'].forEach(key => {
                 const section = document.getElementById(`tab-content-${key}`);
                 const btn = document.getElementById(`nav-btn-${key}`);
                 if (!section || !btn) return;
                 if (key === tabKey) {
                     section.classList.remove('hidden');
-                    btn.className = 'flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm';
+                    btn.className = 'flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm';
                 } else {
                     section.classList.add('hidden');
-                    btn.className = 'flex-1 min-w-[80px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50';
+                    btn.className = 'flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:bg-slate-50';
                 }
             });
             if(tabKey === 'history') {
@@ -596,6 +670,8 @@
             } else if(tabKey === 'pdf-report') {
                 updatePdfMonthOptions();
                 renderPdfReport();
+            } else if(tabKey === 'roadmap') {
+                renderRoadmapView();
             }
         }
 
@@ -609,6 +685,13 @@
 
                 const { data: logs } = await _supabase.from('logs').select('*');
                 allLogs = logs || [];
+
+                try {
+                    const { data: roadmaps } = await _supabase.from('roadmaps').select('*');
+                    allRoadmaps = roadmaps || [];
+                } catch(e) {
+                    allRoadmaps = [];
+                }
 
                 renderStudentTabs();
                 renderTextbookList();
@@ -672,6 +755,9 @@
             document.getElementById('selected-student-label-mgmt').innerText = studentLabel;
             document.getElementById('selected-student-label-stats').innerText = studentLabel;
             document.getElementById('selected-student-label-history').innerText = studentLabel;
+            if(document.getElementById('selected-student-label-roadmap')) {
+                document.getElementById('selected-student-label-roadmap').innerText = studentLabel;
+            }
             document.getElementById('header-student-badge').innerText = currentSelectedStudent ? `👤 ${currentSelectedStudent} 과외 중` : '선택된 학생 없음';
             
             renderTextbookList();
@@ -681,6 +767,7 @@
             if(currentMainTab === 'history') renderLogList();
             if(currentMainTab === 'statistics') renderStatistics();
             if(currentMainTab === 'pdf-report') renderPdfReport();
+            if(currentMainTab === 'roadmap') renderRoadmapView();
         }
 
         function onStudentChange() {
@@ -692,6 +779,9 @@
             document.getElementById('selected-student-label-mgmt').innerText = studentLabel;
             document.getElementById('selected-student-label-stats').innerText = studentLabel;
             document.getElementById('selected-student-label-history').innerText = studentLabel;
+            if(document.getElementById('selected-student-label-roadmap')) {
+                document.getElementById('selected-student-label-roadmap').innerText = studentLabel;
+            }
             document.getElementById('header-student-badge').innerText = currentSelectedStudent ? `👤 ${currentSelectedStudent} 과외 중` : '선택된 학생 없음';
             
             document.getElementById('progress-container').innerHTML = '';
@@ -707,6 +797,7 @@
             if(currentMainTab === 'history') renderLogList();
             if(currentMainTab === 'statistics') renderStatistics();
             if(currentMainTab === 'pdf-report') renderPdfReport();
+            if(currentMainTab === 'roadmap') renderRoadmapView();
         }
 
         async function saveStudent() {
@@ -1197,7 +1288,254 @@
             }
         }
 
-        // 카톡 스크립트 생성 및 모달 열기 함수 (수업 집중도 및 종합 피드백 자동 포함)
+        // -------------------------------------------------------------
+        // [신규] 로드맵(Roadmap) 관리 로직 함수들
+        // -------------------------------------------------------------
+
+        function renderRoadmapView() {
+            const container = document.getElementById('roadmap-list-container');
+            container.innerHTML = '';
+
+            if(!currentSelectedStudent) {
+                container.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">선택된 학생이 없습니다. 상단에서 학생을 먼저 선택해주세요.</p>';
+                return;
+            }
+
+            const studentRoadmaps = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
+
+            if(studentRoadmaps.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                        <p class="text-xs text-slate-500 font-medium">현재 등록된 목표 로드맵이 없습니다.</p>
+                        <button onclick="openCreateRoadmapModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all">
+                            ⚡ 목표 로드맵 만들기 (1-2 기말 대비 10회 등)
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            studentRoadmaps.forEach(rm => {
+                let items = [];
+                try {
+                    items = typeof rm.items === 'string' ? JSON.parse(rm.items) : (rm.items || []);
+                } catch(e) {}
+
+                const totalCount = items.length;
+                const doneCount = items.filter(it => it.done).length;
+                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+                let itemsHtml = items.map((it, idx) => {
+                    const isDone = it.done ? 'checked' : '';
+                    const doneClass = it.done ? 'line-through text-slate-400 font-normal' : 'text-slate-800 font-bold';
+                    return `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/70 ${it.done ? 'bg-slate-50/80' : 'bg-white'} text-xs transition-all gap-2">
+                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                <input type="checkbox" ${isDone} onchange="toggleRoadmapItemDone('${rm.id}', ${idx})" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+                                <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold ${it.done ? 'bg-slate-200 text-slate-600' : 'bg-indigo-100 text-indigo-700'} whitespace-nowrap">
+                                    ${it.session_no}회
+                                </span>
+                                <span class="text-slate-400 font-medium text-[11px] whitespace-nowrap">${it.date || ''}</span>
+                                <div class="truncate ${doneClass}">
+                                    <span>${it.title}</span> 
+                                    <span class="text-[11px] text-indigo-600 font-semibold ml-1">(${it.pages})</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" placeholder="메모" value="${it.memo || ''}" onchange="updateRoadmapItemMemo('${rm.id}', ${idx}, this.value)" class="text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-1 w-24 sm:w-36 text-slate-600">
+                                <button onclick="fillWriteFormFromRoadmap('${it.session_no}', '${it.date}', '${it.pages}', '${it.title}')" title="이 내용으로 수업일지 작성하기" class="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded-md border border-indigo-200 whitespace-nowrap">
+                                    일지 적용
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML += `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                                    <span>🎯</span> ${rm.title}
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">총 ${totalCount}회차 중 ${doneCount}회차 완료</p>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">달성률 ${rate}%</span>
+                                <button onclick="deleteRoadmap('${rm.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500 px-2 py-1">삭제</button>
+                            </div>
+                        </div>
+
+                        <!-- 프로그레스 바 -->
+                        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                            <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${rate}%;"></div>
+                        </div>
+
+                        <!-- 회차별 체크리스트 목록 -->
+                        <div class="space-y-1.5 pt-1">
+                            ${itemsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openCreateRoadmapModal() {
+            if(!currentSelectedStudent) return alert('먼저 학생을 선택해주세요.');
+            document.getElementById('rm-title').value = '중1-2 기말고사 전범위 기본 완성 (10회차 완주)';
+            document.getElementById('rm-modal-items-container').innerHTML = '';
+            loadDefaultExamPlanTemplate();
+            document.getElementById('roadmap-modal').classList.remove('hidden');
+        }
+
+        function closeRoadmapModal() {
+            document.getElementById('roadmap-modal').classList.add('hidden');
+        }
+
+        function loadDefaultExamPlanTemplate() {
+            const template = [
+                { session_no: 1, date: '11/03(화)', title: '다각형 기초 & 대각선 개수', pages: 'p.76~81', memo: '' },
+                { session_no: 2, date: '11/05(목)', title: '다각형 내각과 외각의 크기', pages: 'p.86~91', memo: '' },
+                { session_no: 3, date: '11/07(토)', title: '원과 부채꼴 중심각·호·넓이', pages: 'p.98~105', memo: '' },
+                { session_no: 4, date: '11/10(화)', title: '부채꼴 색칠 계산 & 다면체 입문', pages: 'p.108~111, 118~123', memo: '' },
+                { session_no: 5, date: '11/12(목)', title: '정다면체 5종 & 회전체 성질', pages: 'p.124~133', memo: '' },
+                { session_no: 6, date: '11/17(화)', title: '입체도형 겉넓이와 부피 (기둥)', pages: 'p.142~146', memo: '' },
+                { session_no: 7, date: '11/19(목)', title: '입체도형 겉넓이와 부피 (뿔·구)', pages: 'p.148~155', memo: '' },
+                { session_no: 8, date: '11/24(화)', title: '통계: 도수분포표, 히스토그램', pages: 'p.160~173', memo: '' },
+                { session_no: 9, date: '11/26(목)', title: '통계: 상대도수와 분포 그래프', pages: 'p.182~187', memo: '' },
+                { session_no: 10, date: '12/01(화)', title: '전범위 핵심 공식 점검 & 오답 총정리', pages: '전범위 총복습', memo: '' }
+            ];
+
+            const container = document.getElementById('rm-modal-items-container');
+            container.innerHTML = '';
+            template.forEach(t => addRoadmapModalItemRow(t));
+        }
+
+        function addRoadmapModalItemRow(data = {}) {
+            const container = document.getElementById('rm-modal-items-container');
+            const rowId = 'rm-row-' + Math.random().toString(36).substring(2, 9);
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs rm-modal-row';
+            div.id = rowId;
+            div.innerHTML = `
+                <input type="number" placeholder="회차" value="${data.session_no || ''}" class="rm-item-session bg-white border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
+                <input type="text" placeholder="날짜(예: 11/03)" value="${data.date || ''}" class="rm-item-date bg-white border border-slate-200 p-1.5 rounded-lg w-24 text-center">
+                <input type="text" placeholder="단원/내용" value="${data.title || ''}" class="rm-item-title bg-white border border-slate-200 p-1.5 rounded-lg flex-1 font-semibold">
+                <input type="text" placeholder="쪽수(예: p.76~81)" value="${data.pages || ''}" class="rm-item-pages bg-white border border-slate-200 p-1.5 rounded-lg w-24 text-center text-indigo-600 font-semibold">
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+            `;
+            container.appendChild(div);
+        }
+
+        async function saveRoadmap() {
+            const student_name = currentSelectedStudent;
+            const title = document.getElementById('rm-title').value.trim();
+            if(!student_name) return alert('학생을 선택해주세요.');
+            if(!title) return alert('로드맵 제목을 입력해주세요.');
+
+            const rows = document.querySelectorAll('.rm-modal-row');
+            const items = [];
+            rows.forEach(r => {
+                const session_no = r.querySelector('.rm-item-session').value;
+                const date = r.querySelector('.rm-item-date').value.trim();
+                const itemTitle = r.querySelector('.rm-item-title').value.trim();
+                const pages = r.querySelector('.rm-item-pages').value.trim();
+                if(session_no && itemTitle) {
+                    items.push({
+                        session_no: parseInt(session_no),
+                        date,
+                        title: itemTitle,
+                        pages,
+                        done: false,
+                        memo: ''
+                    });
+                }
+            });
+
+            if(items.length === 0) return alert('최소 1개 이상의 회차 계획을 입력해주세요.');
+
+            const roadmapPayload = {
+                student_name,
+                title,
+                items: JSON.stringify(items)
+            };
+
+            const { error } = await _supabase.from('roadmaps').insert([roadmapPayload]);
+            if(error) return alert('로드맵 저장 실패: ' + error.message);
+
+            alert('목표 로드맵이 생성되었습니다!');
+            closeRoadmapModal();
+            loadData();
+        }
+
+        async function toggleRoadmapItemDone(roadmapId, itemIndex) {
+            const rm = allRoadmaps.find(r => r.id == roadmapId);
+            if(!rm) return;
+
+            let items = typeof rm.items === 'string' ? JSON.parse(rm.items) : rm.items;
+            if(items[itemIndex]) {
+                items[itemIndex].done = !items[itemIndex].done;
+            }
+
+            const { error } = await _supabase.from('roadmaps').update({ items: JSON.stringify(items) }).eq('id', roadmapId);
+            if(error) return alert('업데이트 실패: ' + error.message);
+            
+            rm.items = items;
+            renderRoadmapView();
+        }
+
+        async function updateRoadmapItemMemo(roadmapId, itemIndex, memoVal) {
+            const rm = allRoadmaps.find(r => r.id == roadmapId);
+            if(!rm) return;
+
+            let items = typeof rm.items === 'string' ? JSON.parse(rm.items) : rm.items;
+            if(items[itemIndex]) {
+                items[itemIndex].memo = memoVal;
+            }
+
+            await _supabase.from('roadmaps').update({ items: JSON.stringify(items) }).eq('id', roadmapId);
+            rm.items = items;
+        }
+
+        async function deleteRoadmap(roadmapId) {
+            if(confirm('이 목표 로드맵을 삭제하시겠습니까?')) {
+                await _supabase.from('roadmaps').delete().eq('id', roadmapId);
+                loadData();
+            }
+        }
+
+        // 로드맵 회차 정보를 수업 일지 폼으로 원클릭 복사
+        function fillWriteFormFromRoadmap(sessionNo, dateStr, pages, title) {
+            switchMainTab('write');
+            if(sessionNo) document.getElementById('log-session').value = sessionNo;
+            updateDailyTestNameTitle();
+
+            // 진도 목록에 자동 반영
+            const progContainer = document.getElementById('progress-container');
+            progContainer.innerHTML = '';
+            
+            // 쪽수 파싱 (예: p.76~81)
+            let startP = '', endP = '';
+            const match = pages.match(/(\d+)\s*~\s*(\d+)/);
+            if(match) {
+                startP = match[1];
+                endP = match[2];
+            }
+
+            const defaultTb = allTextbooks.find(tb => tb.student_name === currentSelectedStudent)?.title || '';
+            addProgressRow({
+                textbook: defaultTb,
+                start: startP,
+                end: endP,
+                desc: title
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // -------------------------------------------------------------
+        // 카톡 스크립트 생성 시 로드맵 진행 현황 자동 연동
+        // -------------------------------------------------------------
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -1257,7 +1595,7 @@
             } catch(e) {}
             if (!nextHwStr) nextHwStr = '없음';
 
-            // 수업 집중도 및 종합 피드백 연동 로직
+            // 수업 집중도 및 종합 피드백
             let concentrationStr = '';
             if (log.concentration === '최상') {
                 concentrationStr = '🎯 수업 집중도: 최상 (오늘 수업에 매우 몰입하며 훌륭하게 참여했습니다! 👍)';
@@ -1277,7 +1615,22 @@
                 feedbackStr = `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}`;
             }
 
-            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n📖 [진도 현황]\n${progressStr}\n\n${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
+            // [신규] 활성화된 로드맵 현황 문구 자동 생성
+            let roadmapStatusStr = '';
+            const studentRms = allRoadmaps.filter(r => r.student_name === log.student_name);
+            if(studentRms.length > 0) {
+                const latestRm = studentRms[studentRms.length - 1];
+                let items = [];
+                try {
+                    items = typeof latestRm.items === 'string' ? JSON.parse(latestRm.items) : (latestRm.items || []);
+                } catch(e) {}
+                const doneCount = items.filter(it => it.done).length;
+                const totalCount = items.length;
+                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${latestRm.title}]\n- 전체 ${totalCount}회차 중 ${doneCount}회차 완료 (달성률: ${rate}%)\n\n`;
+            }
+
+            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [진도 현황]\n${progressStr}\n\n${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
 
             document.getElementById('kakao-script-text').value = script;
             document.getElementById('kakao-modal').classList.remove('hidden');
@@ -1387,7 +1740,8 @@
                 exportDate: new Date().toISOString(),
                 students: allStudents,
                 textbooks: allTextbooks,
-                logs: allLogs
+                logs: allLogs,
+                roadmaps: allRoadmaps // 로드맵 데이터 백업 추가
             };
 
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -1397,7 +1751,7 @@
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
-            alert('백업 파일이 성공적으로 다운로드되었습니다!');
+            alert('백업 파일(로드맵 포함)이 성공적으로 다운로드되었습니다!');
         }
 
         async function importDataFromJson() {
@@ -1416,7 +1770,7 @@
                         return alert('올바른 백업 파일 형식이 아닙니다.');
                     }
 
-                    if (!confirm(`백업 파일에 포함된 학생 ${parsed.students.length}명, 교재 ${parsed.textbooks ? parsed.textbooks.length : 0}개, 수업 일지 ${parsed.logs.length}개 데이터를 복구하시겠습니까?\n(기존 데이터에 추가됩니다)`)) {
+                    if (!confirm(`백업 파일에 포함된 학생 ${parsed.students.length}명, 교재 ${parsed.textbooks ? parsed.textbooks.length : 0}개, 일지 ${parsed.logs.length}개 데이터를 복구하시겠습니까?`)) {
                         return;
                     }
 
@@ -1442,6 +1796,13 @@
                         for (let l of parsed.logs) {
                             delete l.id;
                             await _supabase.from('logs').insert([l]);
+                        }
+                    }
+
+                    if (parsed.roadmaps && parsed.roadmaps.length > 0) {
+                        for (let r of parsed.roadmaps) {
+                            delete r.id;
+                            await _supabase.from('roadmaps').insert([r]);
                         }
                     }
 
@@ -1494,7 +1855,6 @@
                 const sessionLabel = l.session_number ? `${l.session_number}회차` : `${l.date.substring(8)}일`;
                 labels.push(sessionLabel);
 
-                // 숙제 이행률 계산 (숙제가 없으면 100%로 처리)
                 try {
                     const checkList = JSON.parse(l.homework_check || '[]');
                     if (checkList.length > 0) {
@@ -1518,7 +1878,6 @@
                     hwCount++;
                 }
 
-                // 데일리테스트 정답률 계산 (미실시 시 null 처리하여 평균에서 제외)
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
                     if (dtObj.total !== undefined && dtObj.total > 0) {
@@ -1591,7 +1950,6 @@
                 const sessionLabel = l.session_number ? `${l.session_number}회차` : `${l.date.substring(8)}일`;
                 labels.push(sessionLabel);
 
-                // 숙제 이행률 (미부여 시 100%)
                 try {
                     const checkList = JSON.parse(l.homework_check || '[]');
                     if (checkList.length > 0) {
@@ -1615,7 +1973,6 @@
                     hwCount++;
                 }
 
-                // 데일리테스트 (미실시 시 제외)
                 try {
                     const dtObj = JSON.parse(l.daily_test || '{}');
                     if (dtObj.total !== undefined && dtObj.total > 0) {
@@ -1648,6 +2005,32 @@
             document.getElementById('pdf-stat-sessions').innerText = totalSessions;
             document.getElementById('pdf-stat-hw').innerText = avgHw;
             document.getElementById('pdf-stat-test').innerText = hasTestRecord ? `${avgTestNum}` : '미실시';
+
+            // [신규] PDF 리포트 내 로드맵 요약 바 렌더링
+            const roadmapContentEl = document.getElementById('pdf-roadmap-content');
+            const studentRms = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
+            if(studentRms.length > 0) {
+                const latestRm = studentRms[studentRms.length - 1];
+                let items = [];
+                try {
+                    items = typeof latestRm.items === 'string' ? JSON.parse(latestRm.items) : (latestRm.items || []);
+                } catch(e) {}
+                const doneCount = items.filter(it => it.done).length;
+                const totalCount = items.length;
+                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+                roadmapContentEl.innerHTML = `
+                    <div class="flex justify-between items-center font-bold">
+                        <span>목표명: ${latestRm.title}</span>
+                        <span class="text-violet-700">${doneCount} / ${totalCount}회차 완주 (${rate}%)</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                        <div class="bg-violet-600 h-2.5 rounded-full" style="width: ${rate}%;"></div>
+                    </div>
+                `;
+            } else {
+                roadmapContentEl.innerHTML = '<p class="text-slate-400">설정된 목표 로드맵이 없습니다.</p>';
+            }
 
             const summaryEl = document.getElementById('pdf-summary-text');
             if (totalSessions === 0) {
