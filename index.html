@@ -828,22 +828,228 @@
             if(currentMainTab === 'roadmap') renderRoadmapView();
         }
 
-        async function saveStudent() {
-            const name = document.getElementById('student-name').value.trim();
-            if(!name) return alert('학생 이름을 입력해주세요.');
-            
-            if(allStudents.some(s => s.name === name)) {
-                return alert('이미 존재하는 학생 이름입니다.');
+        // [수정] 일지 저장/수정 시 미완료 부분 해결 및 로드맵 실시간 양방향 동기화
+        async function saveLog() {
+            const editingId = document.getElementById('editing-log-id').value;
+            const student_name = currentSelectedStudent || document.getElementById('log-student').value;
+            const date = document.getElementById('log-date').value;
+            const session_number = document.getElementById('log-session').value ? parseInt(document.getElementById('log-session').value) : null;
+            const start_time = document.getElementById('log-start-time').value;
+            const end_time = document.getElementById('log-end-time').value;
+            const concentration = document.getElementById('log-concentration').value;
+            const feedback_note = document.getElementById('log-feedback').value.trim();
+
+            if(!student_name) return alert('학생을 먼저 선택하거나 탭을 눌러주세요.');
+
+            const dtTotal = parseInt(document.getElementById('dt-total-questions').value) || 0;
+            const dtCorrect = parseInt(document.getElementById('dt-correct-questions').value) || 0;
+            const dtRows = document.querySelectorAll('.dt-row');
+            const dtWrongList = [];
+            dtRows.forEach(row => {
+                dtWrongList.push({
+                    q_num: row.querySelector('.dt-qnum').value.trim(),
+                    reason: row.querySelector('.dt-reason').value,
+                    desc: row.querySelector('.dt-desc').value.trim()
+                });
+            });
+            const dailyTestData = {
+                test_name: session_number ? `${session_number}회차` : '데일리테스트',
+                total: dtTotal,
+                correct: dtCorrect,
+                wrongs: dtWrongList
+            };
+
+            const checkItems = document.querySelectorAll('.check-item');
+            const homeworkCheckList = [];
+            checkItems.forEach(item => {
+                const textbook = item.querySelector('.check-tb').value;
+                const desc = item.querySelector('.check-desc') ? item.querySelector('.check-desc').value : '';
+                const start = item.querySelector('.check-start') ? item.querySelector('.check-start').value : '';
+                const end = item.querySelector('.check-end') ? item.querySelector('.check-end').value : '';
+                const total_pages = parseInt(item.querySelector('.check-total').value) || 0;
+                const done_pages = parseInt(item.querySelector('.check-done').value) || 0;
+                const rate = total_pages > 0 ? Math.min(100, Math.round((done_pages / total_pages) * 100)) : 100;
+                homeworkCheckList.push({ textbook, desc, start, end, total_pages, done_pages, rate });
+            });
+
+            const progressRows = document.querySelectorAll('.prog-row');
+            const progressList = [];
+            const newBacklogs = [];
+
+            progressRows.forEach(row => {
+                const textbook = row.querySelector('.prog-tb').value;
+                const actualStart = row.querySelector('.prog-start').value;
+                const actualEnd = row.querySelector('.prog-end').value;
+                const desc = row.querySelector('.prog-desc').value.trim();
+                const targetEnd = row.dataset.targetEnd;
+                const stepNo = row.dataset.stepNo;
+
+                progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
+
+                if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
+                    const uncompletedStart = parseInt(actualEnd) + 1;
+                    const uncompletedEnd = parseInt(targetEnd);
+                    newBacklogs.push({
+                        id: 'b-' + Math.random().toString(36).substring(2, 9),
+                        step_no: stepNo || '해당',
+                        textbook: textbook,
+                        uncompleted_range: `${uncompletedStart}~${uncompletedEnd}`,
+                        desc: desc,
+                        created_date: date,
+                        status: 'unresolved'
+                    });
+                }
+            });
+
+            const hwRows = document.querySelectorAll('#homework-container > div');
+            const homeworkList = [];
+            hwRows.forEach(row => {
+                homeworkList.push({
+                    textbook: row.querySelector('.hw-tb').value,
+                    start: row.querySelector('.hw-start').value,
+                    end: row.querySelector('.hw-end').value,
+                    desc: row.querySelector('.hw-desc').value.trim()
+                });
+            });
+
+            const rateCalc = calculateProgressRate();
+            const roadmapProgressRate = rateCalc ? rateCalc.rate : null;
+            const roadmapTargetDetail = rateCalc ? `목표 ${rateCalc.targetTotal}p 중 ${rateCalc.actualTotal}p 소화 (${rateCalc.rate}%)` : '';
+
+            const selectedRmId = document.getElementById('log-roadmap-select').value;
+            const selectedStepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
+
+            // 오늘 체크한 이전 미완료 항목의 해결 쪽수 및 분할 판정
+            const resolvedActionList = [];
+            const backlogRows = document.querySelectorAll('.backlog-check-row');
+            backlogRows.forEach(br => {
+                const chk = br.querySelector('.backlog-include-check');
+                const bid = chk ? chk.dataset.bid : null;
+                const solStart = parseInt(br.querySelector('.b-sol-start').value);
+                const solEnd = parseInt(br.querySelector('.b-sol-end').value);
+
+                if(chk && chk.checked && bid && !isNaN(solStart) && !isNaN(solEnd)) {
+                    resolvedActionList.push({
+                        bid: String(bid),
+                        solStart: solStart,
+                        solEnd: solEnd
+                    });
+                }
+            });
+
+            if(selectedRmId) {
+                const rm = allRoadmaps.find(r => r.id == selectedRmId);
+                if(rm) {
+                    let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
+                    let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+
+                    // 수정 모드일 경우: 과거 이 일지 때문에 변경되었던 상태를 원복(Rollback)
+                    if(editingId) {
+                        const prevLog = allLogs.find(l => l.id == editingId);
+                        if(prevLog) {
+                            try {
+                                const prevInfo = JSON.parse(prevLog.roadmap_info || '{}');
+                                const prevResolvedBids = prevInfo.resolved_bids || [];
+                                backlogs.forEach(b => {
+                                    if(b.id && prevResolvedBids.includes(String(b.id))) {
+                                        b.status = 'unresolved';
+                                        delete b.resolved_date;
+                                    }
+                                });
+                            } catch(e) {}
+                        }
+                    }
+
+                    // 부분 해결 및 잔여 분할 처리
+                    resolvedActionList.forEach(act => {
+                        const found = backlogs.find(b => b.id && String(b.id) === act.bid);
+                        if(found) {
+                            const rangeMatch = String(found.uncompleted_range).match(/(\d+)\s*~\s*(\d+)/);
+                            if(rangeMatch) {
+                                const origStart = parseInt(rangeMatch[1]);
+                                const origEnd = parseInt(rangeMatch[2]);
+
+                                if(act.solEnd < origEnd) {
+                                    // 9~10p 중 9~9p만 완료한 경우: 기존 것은 9~9p로 해결 완료 처리
+                                    found.uncompleted_range = `${origStart}~${act.solEnd}`;
+                                    found.status = 'resolved';
+                                    found.resolved_date = date;
+
+                                    // 남은 10~10p는 새로운 미완료 잔여로 유지
+                                    backlogs.push({
+                                        id: 'b-' + Math.random().toString(36).substring(2, 9),
+                                        step_no: found.step_no,
+                                        textbook: found.textbook,
+                                        uncompleted_range: `${act.solEnd + 1}~${origEnd}`,
+                                        desc: found.desc,
+                                        created_date: found.created_date || date,
+                                        status: 'unresolved'
+                                    });
+                                } else {
+                                    // 전체 범위 다 푼 경우
+                                    found.status = 'resolved';
+                                    found.resolved_date = date;
+                                }
+                            }
+                        }
+                    });
+
+                    // 신규 미완료 추가
+                    if(newBacklogs.length > 0) {
+                        backlogs.push(...newBacklogs);
+                    }
+
+                    // 단계 완주 여부 판정
+                    if(!isNaN(selectedStepNo) && steps.length > 0) {
+                        const st = steps.find(s => s.step_no === selectedStepNo);
+                        if(st) {
+                            st.completed = (newBacklogs.length === 0 && progressRows.length > 0);
+                        }
+                    }
+
+                    await _supabase.from('roadmaps').update({
+                        backlogs: JSON.stringify(backlogs),
+                        steps: JSON.stringify(steps)
+                    }).eq('id', selectedRmId);
+                }
             }
 
-            const { error } = await _supabase.from('students').insert([{ name }]);
-            if (error) return alert('학생 저장 실패: ' + error.message);
-            
-            document.getElementById('student-name').value = '';
-            currentSelectedStudent = name;
-            loadData();
-        }
+            const logData = { 
+                student_name, 
+                textbook: progressList.length > 0 ? progressList[0].textbook : '', 
+                date, 
+                session_number, 
+                start_time, 
+                end_time, 
+                note: JSON.stringify(progressList), 
+                homework_note: JSON.stringify(homeworkList), 
+                homework_check: JSON.stringify(homeworkCheckList),
+                daily_test: JSON.stringify(dailyTestData),
+                concentration: concentration,
+                feedback_note: feedback_note,
+                roadmap_info: JSON.stringify({
+                    roadmap_id: selectedRmId || '',
+                    step_no: selectedStepNo || '',
+                    rate: roadmapProgressRate,
+                    detail: roadmapTargetDetail,
+                    resolved_bids: resolvedActionList.map(a => a.bid)
+                })
+            };
 
+            if(editingId) {
+                const { error } = await _supabase.from('logs').update(logData).eq('id', editingId);
+                if(error) return alert('수정 실패: ' + error.message);
+                alert('수업 일지가 수정되었습니다!');
+            } else {
+                const { error } = await _supabase.from('logs').insert([logData]);
+                if(error) return alert('저장 실패: ' + error.message);
+                alert('수업 일지가 저장되었습니다! (미완료 진도는 다음 회차로 자동 이월되었습니다)');
+            }
+
+            resetLogForm();
+            await loadData();
+            switchMainTab('history');
+        }
         async function deleteStudent(id, name) {
             if(confirm(`'${name}' 학생과 관련된 데이터가 모두 영향받을 수 있습니다. 삭제하시겠습니까?`)) {
                 let query = _supabase.from('students').delete();
@@ -2026,7 +2232,7 @@
             }
         }
 
-        // 카카오톡 스크립트: 당일 로드맵 목표 대비 진도 소화율(%) 자동 연동
+        // [수정] 카카오톡 브리핑: 오늘 구체적 진도 내역 + 현재 잔여 미완료 목록 자동 연동
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -2034,14 +2240,15 @@
             const sessionTitle = log.session_number ? `${log.session_number}회차` : '수업';
             const dateStr = log.date || '';
             
+            // 오늘 구체적으로 나간 진도 내역
             let progressStr = '';
             try {
                 const pList = JSON.parse(log.note || '[]');
                 if (pList.length > 0) {
-                    progressStr = pList.map(p => `[${p.textbook}] ${p.start}~${p.end}p${p.desc ? ' ('+p.desc+')' : ''}`).join('\n');
+                    progressStr = pList.map(p => `• [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? ' ('+p.desc+')' : ''}`).join('\n');
                 }
             } catch(e) {}
-            if (!progressStr) progressStr = `${log.textbook || ''} ${log.start_page || ''}~${log.end_page || ''}p`;
+            if (!progressStr) progressStr = `• ${log.textbook || ''} ${log.start_page || ''}~${log.end_page || ''}p`;
 
             let hwCheckStr = '';
             try {
@@ -2099,13 +2306,11 @@
                 concentrationStr = log.concentration ? `🎯 수업 집중도: ${log.concentration}` : '';
             }
             let feedbackNoteStr = log.feedback_note ? `${log.feedback_note}` : '';
-            
-            let feedbackStr = '';
-            if (concentrationStr || feedbackNoteStr) {
-                feedbackStr = `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}`;
-            }
+            let feedbackStr = (concentrationStr || feedbackNoteStr) ? `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}` : '';
 
+            // 로드맵 목표 대비 당일 소화율 + 현재 미완료 목록 생성
             let roadmapStatusStr = '';
+            let uncompletedListStr = '';
             let rmInfo = {};
             try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
 
@@ -2122,18 +2327,19 @@
                 const completedSteps = steps.filter(s => s.completed).length;
                 const totalProgressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
                 const curStepNo = rmInfo.step_no ? `${rmInfo.step_no}단계` : `${completedSteps + 1}단계`;
-
                 let dailyRateText = (rmInfo.rate !== undefined && rmInfo.rate !== null) ? `${rmInfo.rate}% (${rmInfo.detail})` : '정상 진행';
-                
-                let uncompletedNotice = '';
-                if(rmInfo.rate !== undefined && rmInfo.rate < 100) {
-                    uncompletedNotice = '\n  *(※ 오늘 미완료된 진도는 다음 수업 시작 시 우선 밀착 점검 및 보완합니다)*';
-                }
 
-                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${targetRm.title}]\n• 진행 단계: [${curStepNo}]\n• 오늘 로드맵 목표 진도 소화율: ${dailyRateText} 🚀${uncompletedNotice}\n• 전체 로드맵 누적 달성률: ${totalProgressRate}% (${completedSteps}/${totalSteps}단계 완료)\n\n`;
+                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${targetRm.title}]\n• 진행 단계: [${curStepNo}]\n• 오늘 로드맵 목표 진도 소화율: ${dailyRateText} 🚀\n• 전체 로드맵 누적 달성률: ${totalProgressRate}% (${completedSteps}/${totalSteps}단계 완료)\n\n`;
+
+                // 현재 해결되지 않고 남아있는 미완료 목록 추출
+                const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
+                if(activeBacklogs.length > 0) {
+                    const bItems = activeBacklogs.map(b => `  - [${b.step_no}단계 미완료] ${b.textbook} ${b.uncompleted_range}p 잔여`).join('\n');
+                    uncompletedListStr = `⚠️ [현재 미완료 보완 필요 항목]\n${bItems}\n*(※ 다음 수업 시작 시 우선 밀착 보완 진행합니다)*\n\n`;
+                }
             }
 
-            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [진도 현황]\n${progressStr}\n\n${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
+            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [오늘 나간 진도]\n${progressStr}\n\n${uncompletedListStr}${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
 
             document.getElementById('kakao-script-text').value = script;
             document.getElementById('kakao-modal').classList.remove('hidden');
