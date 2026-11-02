@@ -86,7 +86,7 @@
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
                     <span>📚</span> 수학 과외 스마트 관리
                 </h1>
-                <p class="text-indigo-100 text-xs mt-1">탭을 이동하며 진도, 교재, 숙제 이행률, 목표 로드맵 및 통계를 스마트하게 관리하세요.</p>
+                <p class="text-indigo-100 text-xs mt-1">단계별 목표 로드맵, 미완료 이월 진도, 데일리테스트 및 통계를 스마트하게 관리하세요.</p>
             </div>
             <div class="flex items-center gap-3">
                 <div id="header-student-badge" class="bg-white/15 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-medium border border-white/20">
@@ -96,7 +96,7 @@
             </div>
         </header>
 
-        <!-- 스마트 메인 내비게이션 탭 (로드맵 탭 추가) -->
+        <!-- 스마트 메인 내비게이션 탭 -->
         <nav class="flex flex-wrap bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/80 gap-1.5 no-print">
             <button onclick="switchMainTab('write')" id="nav-btn-write" class="flex-1 min-w-[70px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm">
                 📝 수업 일지
@@ -129,19 +129,14 @@
                         <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
                             <span class="w-2 h-2 rounded-full bg-indigo-600"></span> 목표 로드맵 관리 <span id="selected-student-label-roadmap" class="text-indigo-600 text-xs font-semibold ml-1"></span>
                         </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">기말 대비 벼락치기나 방학 선행 계획을 등록하고, 수업 회차별 완료 상태를 체크하세요.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">날짜에 구애받지 않는 순수 단계별 플랜을 만들고, 단계마다 여러 권의 교재와 프린트를 관리하세요.</p>
                     </div>
-                    <div class="flex gap-2 w-full sm:w-auto">
-                        <button onclick="openCreateRoadmapModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap">
-                            + 새 목표 계획 생성
-                        </button>
-                    </div>
+                    <button onclick="openCreateRoadmapModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap">
+                        + 새 로드맵 만들기
+                    </button>
                 </div>
 
-                <!-- 등록된 로드맵 카드 컨테이너 -->
-                <div id="roadmap-list-container" class="space-y-6">
-                    <p class="text-xs text-slate-400 text-center py-6">선택된 학생에게 등록된 로드맵이 없습니다. [+ 새 목표 계획 생성]을 눌러주세요.</p>
-                </div>
+                <div id="roadmap-list-container" class="space-y-6"></div>
             </div>
         </section>
 
@@ -225,7 +220,33 @@
                 </div>
             </div>
 
-            <!-- 나간 진도 목록 -->
+            <!-- [신규] 로드맵 연계 및 단계 선택 바 -->
+            <div class="space-y-3 bg-violet-50/60 p-4 rounded-xl border border-violet-200/80">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <label class="font-bold text-xs text-violet-900 flex items-center gap-1.5">
+                        <span>🎯</span> 로드맵 불러오기 및 오늘 진행할 단계
+                    </label>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <select id="log-roadmap-select" onchange="onLogRoadmapChange()" class="bg-white border border-violet-200 p-1.5 rounded-lg text-xs font-semibold flex-1 sm:w-48 focus:outline-none">
+                            <option value="">로드맵 없음 (직접 입력)</option>
+                        </select>
+                        <select id="log-roadmap-step-select" onchange="applyRoadmapStepToProgress()" class="bg-white border border-violet-200 p-1.5 rounded-lg text-xs font-semibold flex-1 sm:w-36 focus:outline-none hidden">
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 이전 단계들에서 누적 이월된 미완료 진도 영역 -->
+                <div id="backlog-container" class="space-y-2 hidden">
+                    <div class="flex justify-between items-center pt-1 border-t border-violet-200/60">
+                        <span class="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                            ⚠️ 이전 단계 누적 미완료 진도 (오늘 해결 시 체크 및 쪽수 입력)
+                        </span>
+                    </div>
+                    <div id="backlog-items-list" class="space-y-1.5"></div>
+                </div>
+            </div>
+
+            <!-- 이번에 나간 진도 목록 -->
             <div class="space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
                 <div class="flex justify-between items-center">
                     <label class="font-bold text-xs text-indigo-800 flex items-center gap-1.5">
@@ -234,6 +255,12 @@
                     <button type="button" onclick="addProgressRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold shadow-sm transition-all">+ 진도 추가</button>
                 </div>
                 <div id="progress-container" class="space-y-2"></div>
+
+                <!-- 당일 진도 이행률 계산 바 -->
+                <div id="progress-rate-box" class="bg-indigo-100/70 p-2.5 rounded-xl text-xs font-bold text-indigo-900 flex justify-between items-center border border-indigo-200 hidden">
+                    <span>🎯 오늘 로드맵 목표 진도 소화율</span>
+                    <span id="progress-rate-text" class="text-sm font-extrabold text-indigo-700">100%</span>
+                </div>
             </div>
 
             <!-- 새로 내준 숙제 목록 -->
@@ -291,8 +318,9 @@
                 <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
                     <span class="w-2 h-2 rounded-full bg-blue-600"></span> 교재 관리 <span id="selected-student-label-mgmt" class="text-blue-600 text-xs font-semibold ml-1"></span>
                 </h2>
+                <p class="text-xs text-slate-500">기본 교재를 등록하세요. '프린트'를 등록해 두시면 로드맵과 일지에서 유인물 이름을 자유롭게 적어 쓸 수 있습니다.</p>
                 <div class="flex gap-2">
-                    <input type="text" id="textbook-title" placeholder="교재 이름 (예: 쎈 수학 상)" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="textbook-title" placeholder="교재 이름 (예: 베이직쎈 중1-2, 프린트)" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <button onclick="saveTextbook()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm whitespace-nowrap">교재 추가</button>
                 </div>
                 <div id="textbook-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1"></div>
@@ -311,7 +339,6 @@
                 </div>
             </div>
 
-            <!-- 요약 카드 영역 -->
             <div class="grid grid-cols-3 gap-3">
                 <div class="bg-indigo-50/70 border border-indigo-100 p-3.5 rounded-2xl text-center">
                     <span class="block text-[11px] font-bold text-indigo-500 mb-1">총 수업 횟수</span>
@@ -327,7 +354,6 @@
                 </div>
             </div>
 
-            <!-- 회차별 숙제 이행률 그래프 -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <span>📈</span> 회차별 숙제 이행률 흐름 (%) <span class="text-[10px] text-slate-400 font-normal">(숙제 미부여 시 100% 기록)</span>
@@ -337,17 +363,15 @@
                 </div>
             </div>
 
-            <!-- 회차별 데일리테스트 정답률 그래프 -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>📊</span> 회차별 데일리테스트 정답률 흐름 (%) <span class="text-[10px] text-slate-400 font-normal">(미실시 회차는 제외)</span>
+                    <span>📊</span> 회차별 데일리테스트 정답률 흐름 (%)
                 </h3>
                 <div class="relative h-48 w-full">
                     <canvas id="testChart"></canvas>
                 </div>
             </div>
 
-            <!-- 데일리테스트 오답 원인 분석 도넛 그래프 -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <span>🍩</span> 데일리테스트 오답 원인 비율
@@ -358,7 +382,7 @@
             </div>
         </section>
 
-        <!-- [탭 4] 월별 PDF 인쇄 및 리포트 탭 (로드맵 섹션 추가) -->
+        <!-- [탭 4] 월별 PDF 인쇄 및 리포트 탭 -->
         <section id="tab-content-pdf-report" class="hidden space-y-4">
             <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 no-print">
                 <div class="flex items-center gap-2">
@@ -402,7 +426,7 @@
                     </div>
                 </div>
 
-                <!-- [신규] PDF 리포트 내 로드맵 달성 현황 섹션 -->
+                <!-- PDF 리포트 내 로드맵 달성 현황 섹션 -->
                 <div id="pdf-roadmap-section" class="page-break-avoid bg-violet-50/60 p-4 rounded-xl border border-violet-100 space-y-2">
                     <h3 class="text-sm font-bold text-violet-900 flex items-center gap-1.5">
                         <span>🎯</span> 중점 목표 로드맵 진행 현황
@@ -485,27 +509,24 @@
                 <p class="text-xs text-slate-500 mt-1">서버에 저장된 모든 학생, 교재, 수업 일지 및 로드맵 데이터를 안전하게 백업하거나 복구할 수 있습니다.</p>
             </div>
 
-            <!-- 백업 다운로드 카드 -->
             <div class="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-3">
                 <h3 class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
                     <span>💾</span> 데이터 백업 파일 다운로드
                 </h3>
                 <p class="text-xs text-slate-600 leading-relaxed">
-                    현재 플랫폼에 저장된 모든 데이터를 내 컴퓨터나 스마트폰에 JSON 파일로 다운로드합니다. 로드맵 데이터도 함께 백업됩니다.
+                    현재 플랫폼에 저장된 모든 데이터를 내 컴퓨터나 스마트폰에 JSON 파일로 다운로드합니다. 로드맵 및 이월 진도도 포함됩니다.
                 </p>
                 <button onclick="exportDataToJson()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5">
                     <span>📥</span> 백업 파일(.json) 다운로드하기
                 </button>
             </div>
 
-            <!-- 데이터 복구 업로드 카드 -->
             <div class="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 space-y-3">
                 <h3 class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                     <span>📂</span> 백업 파일로 데이터 복구 (업로드)
                 </h3>
                 <p class="text-xs text-slate-600 leading-relaxed">
-                    이전에 백업해 둔 JSON 파일을 선택하여 데이터를 복구합니다. <br>
-                    <span class="text-rose-600 font-semibold">⚠️ 주의:</span> 기존 데이터와 중복되거나 덮어씌워질 수 있으므로 신중하게 진행해주세요.
+                    이전에 백업해 둔 JSON 파일을 선택하여 데이터를 복구합니다.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                     <input type="file" id="backup-file-input" accept=".json" class="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-700 file:cursor-pointer">
@@ -518,32 +539,32 @@
 
     </div>
 
-    <!-- 로드맵 생성/수정 모달 -->
+    <!-- 로드맵 생성/수정 모달 (단계별 다중 교재 지원) -->
     <div id="roadmap-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <h3 class="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
-                    <span>🎯</span> 목표 로드맵 등록
+                    <span>🎯</span> 목표 로드맵 등록 (날짜 없는 순수 단계 큐)
                 </h3>
                 <button onclick="closeRoadmapModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">×</button>
             </div>
             
-            <div class="space-y-3">
+            <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">목표 계획 제목</label>
-                    <input type="text" id="rm-title" placeholder="예: 중1-2 기말 단기 완주 (베이직쎈)" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="rm-title" placeholder="예: 중1-2 기말 전범위 완주 (베이직쎈+교과서)" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 
-                <div class="flex justify-between items-center pt-2">
-                    <label class="text-xs font-bold text-slate-700">회차별 학습 계획 리스트</label>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-100">
+                    <label class="text-xs font-bold text-slate-700">단계별 커리큘럼 구성</label>
                     <div class="flex gap-1.5">
-                        <button type="button" onclick="loadDefaultExamPlanTemplate()" class="bg-violet-50 hover:bg-violet-100 text-violet-700 text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-violet-200">⚡ 1-2 기말 10회 템플릿 불러오기</button>
-                        <button type="button" onclick="addRoadmapModalItemRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] px-2.5 py-1.5 rounded-lg font-bold">+ 회차 추가</button>
+                        <button type="button" onclick="loadDefaultMultiBookTemplate()" class="bg-violet-50 hover:bg-violet-100 text-violet-700 text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-violet-200">⚡ 1-2 기말 완성 템플릿(베이직쎈+교과서)</button>
+                        <button type="button" onclick="addRoadmapStepCard()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] px-2.5 py-1.5 rounded-lg font-bold">+ 새 단계 추가</button>
                     </div>
                 </div>
 
-                <div id="rm-modal-items-container" class="space-y-2">
-                    <!-- 회차 항목들이 렌더링됨 -->
+                <div id="rm-steps-container" class="space-y-3">
+                    <!-- 단계별 카드들이 동적으로 생성됨 -->
                 </div>
             </div>
 
@@ -583,7 +604,7 @@
         let allStudents = [];
         let allTextbooks = [];
         let allLogs = [];
-        let allRoadmaps = []; // 신규 로드맵 데이터 배열
+        let allRoadmaps = [];
         let currentSelectedStudent = '';
         let currentMainTab = 'write';
 
@@ -594,7 +615,7 @@
         let pdfTestChartInstance = null;
         let pdfReasonChartInstance = null;
 
-        // 페이지 최초 로드 시 로그인 상태 확인
+        // 페이지 최초 로드 시 로그인 확인
         (async function checkUserSession() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
@@ -604,7 +625,6 @@
             }
         })();
 
-        // 로그인 실행 함수
         async function handleLogin() {
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
@@ -627,7 +647,6 @@
             }
         }
 
-        // 로그아웃 실행 함수
         async function handleLogout() {
             await _supabase.auth.signOut();
             showAuthSection();
@@ -698,6 +717,7 @@
                 updateYearFilterOptions();
                 updateStatMonthOptions();
                 updatePdfMonthOptions();
+                updateLogRoadmapOptions();
 
                 if (currentSelectedStudent && !allStudents.some(s => s.name === currentSelectedStudent)) {
                     currentSelectedStudent = '';
@@ -764,6 +784,7 @@
             autoLoadLatestHomework();
             updateStatMonthOptions();
             updatePdfMonthOptions();
+            updateLogRoadmapOptions();
             if(currentMainTab === 'history') renderLogList();
             if(currentMainTab === 'statistics') renderStatistics();
             if(currentMainTab === 'pdf-report') renderPdfReport();
@@ -792,6 +813,7 @@
             autoLoadLatestHomework();
             updateStatMonthOptions();
             updatePdfMonthOptions();
+            updateLogRoadmapOptions();
             addProgressRow();
             addHomeworkRow();
             if(currentMainTab === 'history') renderLogList();
@@ -883,10 +905,20 @@
             const studentName = currentSelectedStudent;
             const studentTbs = allTextbooks.filter(tb => tb.student_name === studentName);
             let options = '<option value="">교재 선택</option>';
+            let hasPrint = false;
+
             studentTbs.forEach(tb => {
+                if(tb.title === '프린트' || tb.title === '프린트물') hasPrint = true;
                 const sel = tb.title === selectedTb ? 'selected' : '';
                 options += `<option value="${tb.title}" ${sel}>${tb.title}</option>`;
             });
+
+            // 학생 등록 교재에 프린트가 없더라도 기본 옵션으로 프린트를 항상 제공
+            if(!hasPrint) {
+                const sel = selectedTb === '프린트' ? 'selected' : '';
+                options += `<option value="프린트" ${sel}>📄 프린트</option>`;
+            }
+
             return options;
         }
 
@@ -1053,17 +1085,28 @@
             const container = document.getElementById('progress-container');
             const rowId = 'prog-' + Math.random().toString(36).substring(2, 9);
             const div = document.createElement('div');
-            div.className = 'flex gap-2 items-center bg-white p-2.5 rounded-xl border border-indigo-100 text-xs shadow-2xs';
+            div.className = 'flex gap-2 items-center bg-white p-2.5 rounded-xl border border-indigo-100 text-xs shadow-2xs prog-row';
             div.id = rowId;
+            
+            // 로드맵 목표 범위가 있다면 데이터 속성으로 저장
+            const targetStart = data.target_start !== undefined ? data.target_start : (data.start || '');
+            const targetEnd = data.target_end !== undefined ? data.target_end : (data.end || '');
+            const stepNo = data.step_no !== undefined ? data.step_no : '';
+
+            div.dataset.targetStart = targetStart;
+            div.dataset.targetEnd = targetEnd;
+            div.dataset.stepNo = stepNo;
+
             div.innerHTML = `
                 <select class="prog-tb bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-1/3">${getTextbookOptions(data.textbook)}</select>
-                <input type="number" placeholder="시작" value="${data.start !== undefined ? data.start : ''}" class="prog-start bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center">
+                <input type="number" placeholder="시작" value="${data.start !== undefined ? data.start : ''}" oninput="calculateProgressRate()" class="prog-start bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center">
                 <span class="text-slate-400">~</span>
-                <input type="number" placeholder="끝" value="${data.end !== undefined ? data.end : ''}" class="prog-end bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center">
-                <input type="text" placeholder="비고(단원명)" value="${data.desc || ''}" class="prog-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
-                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+                <input type="number" placeholder="끝" value="${data.end !== undefined ? data.end : ''}" oninput="calculateProgressRate()" class="prog-end bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center">
+                <input type="text" placeholder="비고(단원명 또는 프린트 이름)" value="${data.desc || ''}" class="prog-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
+                <button type="button" onclick="document.getElementById('${rowId}').remove(); calculateProgressRate();" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
             `;
             container.appendChild(div);
+            calculateProgressRate();
         }
 
         function addHomeworkRow(data = {}) {
@@ -1082,6 +1125,533 @@
             `;
             container.appendChild(div);
         }
+
+        // 당일 로드맵 목표 진도 대비 소화율 계산
+        function calculateProgressRate() {
+            const rows = document.querySelectorAll('.prog-row');
+            let targetTotal = 0;
+            let actualTotal = 0;
+
+            rows.forEach(r => {
+                const tStart = parseInt(r.dataset.targetStart);
+                const tEnd = parseInt(r.dataset.targetEnd);
+                const aStart = parseInt(r.querySelector('.prog-start').value);
+                const aEnd = parseInt(r.querySelector('.prog-end').value);
+
+                if(!isNaN(tStart) && !isNaN(tEnd) && tEnd >= tStart) {
+                    targetTotal += (tEnd - tStart + 1);
+                }
+                if(!isNaN(aStart) && !isNaN(aEnd) && aEnd >= aStart) {
+                    actualTotal += (aEnd - aStart + 1);
+                }
+            });
+
+            const rateBox = document.getElementById('progress-rate-box');
+            if(targetTotal > 0) {
+                const rate = Math.min(100, Math.round((actualTotal / targetTotal) * 100));
+                document.getElementById('progress-rate-text').innerText = `목표 ${targetTotal}p 중 ${actualTotal}p 소화 (${rate}%)`;
+                rateBox.classList.remove('hidden');
+            } else {
+                rateBox.classList.add('hidden');
+            }
+        }
+
+        // -------------------------------------------------------------
+        // [신규] 목표 로드맵 렌더링 및 단계별 다중 교재 모달 로직
+        // -------------------------------------------------------------
+
+        function renderRoadmapView() {
+            const container = document.getElementById('roadmap-list-container');
+            container.innerHTML = '';
+
+            if(!currentSelectedStudent) {
+                container.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">선택된 학생이 없습니다. 상단에서 학생을 먼저 선택해주세요.</p>';
+                return;
+            }
+
+            const studentRoadmaps = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
+
+            if(studentRoadmaps.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                        <p class="text-xs text-slate-500 font-medium">현재 등록된 목표 로드맵이 없습니다.</p>
+                        <button onclick="openCreateRoadmapModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all">
+                            ⚡ 목표 로드맵 만들기 (베이직쎈 + 교과서 + 프린트)
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            studentRoadmaps.forEach(rm => {
+                let steps = [];
+                let backlogs = [];
+                try {
+                    steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+                } catch(e) {}
+                try {
+                    backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
+                } catch(e) {}
+
+                const totalSteps = steps.length;
+                const completedSteps = steps.filter(s => s.completed).length;
+                const progressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+                // 누적 미완료 이월 리스트 배지 UI
+                let backlogHtml = '';
+                if(backlogs.length > 0) {
+                    const items = backlogs.map((b, bIdx) => `
+                        <div class="flex items-center justify-between bg-rose-50 border border-rose-200 p-2 rounded-xl text-xs text-rose-900">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded text-[10px] font-extrabold">[${b.step_no}단계 이월]</span>
+                                <span class="font-bold">${b.textbook}</span>
+                                <span>${b.uncompleted_range}p</span>
+                                ${b.desc ? `<span class="text-rose-500">(${b.desc})</span>` : ''}
+                            </div>
+                            <button onclick="resolveBacklogDirect('${rm.id}', ${bIdx})" class="text-[10px] bg-white border border-rose-300 text-rose-700 px-2 py-0.5 rounded-md font-bold hover:bg-rose-100">
+                                해결 완료 ✓
+                            </button>
+                        </div>
+                    `).join('');
+                    backlogHtml = `
+                        <div class="space-y-1.5 bg-rose-50/40 p-3 rounded-xl border border-rose-100">
+                            <span class="text-xs font-black text-rose-700 flex items-center gap-1">⚠️ 현재 해결해야 할 누적 밀린 진도:</span>
+                            ${items}
+                        </div>
+                    `;
+                }
+
+                // 단계별 다중 교재 리스트 UI
+                let stepsHtml = steps.map((st, sIdx) => {
+                    const isChecked = st.completed ? 'checked' : '';
+                    const titleClass = st.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-800 font-bold';
+
+                    let booksDetailHtml = (st.books || []).map(b => `
+                        <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pl-6">
+                            <span>•</span>
+                            <span class="font-bold text-indigo-700">[${b.textbook}]</span>
+                            <span>${b.start}~${b.end}p</span>
+                            ${b.desc ? `<span class="text-slate-400">(${b.desc})</span>` : ''}
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="p-3 rounded-xl border border-slate-200/80 ${st.completed ? 'bg-slate-50/70' : 'bg-white'} space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" ${isChecked} onchange="toggleRoadmapStepCompleted('${rm.id}', ${sIdx})" class="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer">
+                                    <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold ${st.completed ? 'bg-slate-200 text-slate-600' : 'bg-indigo-100 text-indigo-700'}">
+                                        ${st.step_no}단계
+                                    </span>
+                                    <span class="${titleClass} text-xs sm:text-sm font-bold">${st.title}</span>
+                                </div>
+                                <button onclick="applyRoadmapStepDirectToLog('${rm.id}', ${st.step_no})" class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 whitespace-nowrap">
+                                    이 단계로 일지 작성
+                                </button>
+                            </div>
+                            <div class="space-y-0.5">${booksDetailHtml}</div>
+                            ${st.memo ? `<div class="pl-6 text-[11px] text-slate-400 font-medium">💡 메모: ${st.memo}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML += `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                                    <span>🎯</span> ${rm.title}
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">총 ${totalSteps}단계 중 ${completedSteps}단계 완료</p>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">달성률 ${progressRate}%</span>
+                                <button onclick="deleteRoadmap('${rm.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500 px-2 py-1">삭제</button>
+                            </div>
+                        </div>
+
+                        <!-- 전체 누적 달성률 바 -->
+                        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                            <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${progressRate}%;"></div>
+                        </div>
+
+                        ${backlogHtml}
+
+                        <!-- 단계별 리스트 -->
+                        <div class="space-y-2 pt-1">
+                            ${stepsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openCreateRoadmapModal() {
+            if(!currentSelectedStudent) return alert('먼저 학생을 선택해주세요.');
+            document.getElementById('rm-title').value = '중1-2 기말 전범위 완주 로드맵 (베이직쎈 + 교과서)';
+            document.getElementById('rm-steps-container').innerHTML = '';
+            loadDefaultMultiBookTemplate();
+            document.getElementById('roadmap-modal').classList.remove('hidden');
+        }
+
+        function closeRoadmapModal() {
+            document.getElementById('roadmap-modal').classList.add('hidden');
+        }
+
+        // 다중 교재 기본 템플릿 로드 (다각형 ~ 통계 끝까지 완주)[cite: 76, 77, 86]
+        function loadDefaultMultiBookTemplate() {
+            const container = document.getElementById('rm-steps-container');
+            container.innerHTML = '';
+
+            const defaultSteps = [
+                {
+                    step_no: 1,
+                    title: "다각형 기초 & 대각선",
+                    books: [
+                        { textbook: "베이직쎈", start: 76, end: 81, desc: "개념 22~24" },
+                        { textbook: "교과서", start: 98, end: 101, desc: "다각형 기본 예제" }
+                    ]
+                },
+                {
+                    step_no: 2,
+                    title: "다각형 내각과 외각의 크기",
+                    books: [
+                        { textbook: "베이직쎈", start: 86, end: 91, desc: "개념 25~26" },
+                        { textbook: "교과서", start: 102, end: 105, desc: "내각·외각 문제" }
+                    ]
+                },
+                {
+                    step_no: 3,
+                    title: "원과 부채꼴의 성질",
+                    books: [
+                        { textbook: "베이직쎈", start: 98, end: 105, desc: "개념 27~29" },
+                        { textbook: "교과서", start: 110, end: 113, desc: "중심각과 호" }
+                    ]
+                },
+                {
+                    step_no: 4,
+                    title: "부채꼴 계산 & 다면체 입문",
+                    books: [
+                        { textbook: "베이직쎈", start: 108, end: 111, desc: "개념 30~31" },
+                        { textbook: "베이직쎈", start: 118, end: 123, desc: "개념 32 다면체" },
+                        { textbook: "프린트", start: 1, end: 2, desc: "부채꼴 계산 클리닉 10제" }
+                    ]
+                },
+                {
+                    step_no: 5,
+                    title: "정다면체 5종 & 회전체 성질",
+                    books: [
+                        { textbook: "베이직쎈", start: 124, end: 133, desc: "개념 33~37" },
+                        { textbook: "교과서", start: 125, end: 129, desc: "전개도 분석" }
+                    ]
+                },
+                {
+                    step_no: 6,
+                    title: "입체도형 겉넓이와 부피 (기둥)",
+                    books: [
+                        { textbook: "베이직쎈", start: 142, end: 146, desc: "개념 38~39" },
+                        { textbook: "교과서", start: 135, end: 138, desc: "기둥 겉넓이·부피" }
+                    ]
+                },
+                {
+                    step_no: 7,
+                    title: "입체도형 겉넓이와 부피 (뿔과 구)",
+                    books: [
+                        { textbook: "베이직쎈", start: 148, end: 155, desc: "개념 40~42" },
+                        { textbook: "교과서", start: 140, end: 144, desc: "뿔·구 공식 적용" }
+                    ]
+                },
+                {
+                    step_no: 8,
+                    title: "통계: 도수분포표, 히스토그램",
+                    books: [
+                        { textbook: "베이직쎈", start: 160, end: 173, desc: "개념 43~47" },
+                        { textbook: "교과서", start: 155, end: 160, desc: "도수분포표 해석" }
+                    ]
+                },
+                {
+                    step_no: 9,
+                    title: "통계: 상대도수와 분포 그래프",
+                    books: [
+                        { textbook: "베이직쎈", start: 182, end: 187, desc: "개념 48~50" },
+                        { textbook: "교과서", start: 165, end: 169, desc: "상대도수 총합 계산" }
+                    ]
+                },
+                {
+                    step_no: 10,
+                    title: "전범위 핵심 공식 점검 & 오답 총정리",
+                    books: [
+                        { textbook: "프린트", start: 1, end: 4, desc: "기말고사 대비 실전 모의고사 25문항" }
+                    ]
+                }
+            ];
+
+            defaultSteps.forEach(st => addRoadmapStepCard(st));
+        }
+
+        function addRoadmapStepCard(data = {}) {
+            const container = document.getElementById('rm-steps-container');
+            const stepId = 'step-card-' + Math.random().toString(36).substring(2, 9);
+            const stepNo = data.step_no !== undefined ? data.step_no : (container.querySelectorAll('.step-card').length + 1);
+
+            const div = document.createElement('div');
+            div.className = 'bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5 step-card text-xs';
+            div.id = stepId;
+            div.innerHTML = `
+                <div class="flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2 flex-1">
+                        <span class="bg-indigo-600 text-white px-2 py-0.5 rounded-md font-bold text-[11px] whitespace-nowrap">
+                            단계 <span class="step-num-text">${stepNo}</span>
+                        </span>
+                        <input type="text" placeholder="단계명 (예: 다각형 기초 & 대각선)" value="${data.title || ''}" class="step-title-input bg-white border border-slate-200 p-1.5 rounded-lg flex-1 font-bold text-slate-800">
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="addBookRowToStep('${stepId}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded-md text-[11px] border border-indigo-200 whitespace-nowrap">+ 교재 추가</button>
+                        <button type="button" onclick="document.getElementById('${stepId}').remove(); renumberSteps();" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+                    </div>
+                </div>
+                <div class="step-books-container space-y-1.5 pl-2 border-l-2 border-indigo-200">
+                    <!-- 교재 항목들이 추가됨 -->
+                </div>
+            `;
+            container.appendChild(div);
+
+            const books = data.books && data.books.length > 0 ? data.books : [{ textbook: '베이직쎈', start: '', end: '', desc: '' }];
+            books.forEach(b => addBookRowToStep(stepId, b));
+        }
+
+        function addBookRowToStep(stepCardId, bookData = {}) {
+            const stepCard = document.getElementById(stepCardId);
+            if(!stepCard) return;
+            const container = stepCard.querySelector('.step-books-container');
+            const rowId = 'b-row-' + Math.random().toString(36).substring(2, 9);
+
+            const div = document.createElement('div');
+            div.className = 'flex gap-1.5 items-center bg-white p-1.5 rounded-xl border border-slate-200 book-sub-row text-xs';
+            div.id = rowId;
+            div.innerHTML = `
+                <select class="book-tb bg-slate-50 border border-slate-200 p-1 rounded-md text-xs font-semibold w-1/3">
+                    ${getTextbookOptions(bookData.textbook || '')}
+                </select>
+                <input type="number" placeholder="시작" value="${bookData.start !== undefined ? bookData.start : ''}" class="book-start bg-slate-50 border border-slate-200 p-1 rounded-md w-14 text-center">
+                <span>~</span>
+                <input type="number" placeholder="끝" value="${bookData.end !== undefined ? bookData.end : ''}" class="book-end bg-slate-50 border border-slate-200 p-1 rounded-md w-14 text-center">
+                <input type="text" placeholder="설명/비고 (프린트명, 핵심 등)" value="${bookData.desc || ''}" class="book-desc bg-slate-50 border border-slate-200 p-1 rounded-md flex-1">
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1 text-base">×</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function renumberSteps() {
+            const cards = document.querySelectorAll('.step-card');
+            cards.forEach((c, idx) => {
+                c.querySelector('.step-num-text').innerText = (idx + 1);
+            });
+        }
+
+        async function saveRoadmap() {
+            const student_name = currentSelectedStudent;
+            const title = document.getElementById('rm-title').value.trim();
+            if(!student_name) return alert('학생을 먼저 선택해주세요.');
+            if(!title) return alert('로드맵 제목을 입력해주세요.');
+
+            const stepCards = document.querySelectorAll('.step-card');
+            const steps = [];
+
+            stepCards.forEach((card, idx) => {
+                const step_no = idx + 1;
+                const stepTitle = card.querySelector('.step-title-input').value.trim();
+                const bookRows = card.querySelectorAll('.book-sub-row');
+                const books = [];
+
+                bookRows.forEach(br => {
+                    const tb = br.querySelector('.book-tb').value;
+                    const st = br.querySelector('.book-start').value;
+                    const en = br.querySelector('.book-end').value;
+                    const ds = br.querySelector('.book-desc').value.trim();
+                    if(tb) {
+                        books.push({
+                            textbook: tb,
+                            start: st !== '' ? parseInt(st) : '',
+                            end: en !== '' ? parseInt(en) : '',
+                            desc: ds
+                        });
+                    }
+                });
+
+                if(stepTitle) {
+                    steps.push({
+                        step_no,
+                        title: stepTitle,
+                        books,
+                        completed: false,
+                        memo: ''
+                    });
+                }
+            });
+
+            if(steps.length === 0) return alert('최소 1개 이상의 단계를 입력해주세요.');
+
+            const payload = {
+                student_name,
+                title,
+                steps: JSON.stringify(steps),
+                backlogs: JSON.stringify([])
+            };
+
+            const { error } = await _supabase.from('roadmaps').insert([payload]);
+            if(error) return alert('로드맵 저장 실패: ' + error.message);
+
+            alert('목표 로드맵이 생성되었습니다!');
+            closeRoadmapModal();
+            loadData();
+        }
+
+        async function toggleRoadmapStepCompleted(roadmapId, stepIndex) {
+            const rm = allRoadmaps.find(r => r.id == roadmapId);
+            if(!rm) return;
+
+            let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : rm.steps;
+            if(steps[stepIndex]) {
+                steps[stepIndex].completed = !steps[stepIndex].completed;
+            }
+
+            const { error } = await _supabase.from('roadmaps').update({ steps: JSON.stringify(steps) }).eq('id', roadmapId);
+            if(error) return alert('업데이트 실패: ' + error.message);
+
+            rm.steps = steps;
+            renderRoadmapView();
+            updateLogRoadmapOptions();
+        }
+
+        async function resolveBacklogDirect(roadmapId, backlogIndex) {
+            const rm = allRoadmaps.find(r => r.id == roadmapId);
+            if(!rm) return;
+
+            let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : rm.backlogs;
+            backlogs.splice(backlogIndex, 1);
+
+            await _supabase.from('roadmaps').update({ backlogs: JSON.stringify(backlogs) }).eq('id', roadmapId);
+            rm.backlogs = backlogs;
+            renderRoadmapView();
+        }
+
+        async function deleteRoadmap(roadmapId) {
+            if(confirm('이 목표 로드맵을 삭제하시겠습니까?')) {
+                await _supabase.from('roadmaps').delete().eq('id', roadmapId);
+                loadData();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 일지 작성 화면에서 로드맵 단계 및 이월 진도 불러오기 연계
+        // -------------------------------------------------------------
+
+        function updateLogRoadmapOptions() {
+            const select = document.getElementById('log-roadmap-select');
+            if(!select) return;
+            select.innerHTML = '<option value="">로드맵 없음 (직접 입력)</option>';
+
+            const studentRms = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
+            studentRms.forEach(rm => {
+                select.innerHTML += `<option value="${rm.id}">🎯 ${rm.title}</option>`;
+            });
+
+            onLogRoadmapChange();
+        }
+
+        function onLogRoadmapChange() {
+            const rmId = document.getElementById('log-roadmap-select').value;
+            const stepSelect = document.getElementById('log-roadmap-step-select');
+            const backlogBox = document.getElementById('backlog-container');
+            const backlogList = document.getElementById('backlog-items-list');
+
+            if(!rmId) {
+                stepSelect.classList.add('hidden');
+                backlogBox.classList.add('hidden');
+                return;
+            }
+
+            const rm = allRoadmaps.find(r => r.id == rmId);
+            if(!rm) return;
+
+            let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+            let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
+
+            stepSelect.innerHTML = '<option value="">진행할 단계 선택</option>';
+            steps.forEach(st => {
+                const mark = st.completed ? '✓ ' : '';
+                stepSelect.innerHTML += `<option value="${st.step_no}">${mark}${st.step_no}단계: ${st.title}</option>`;
+            });
+            stepSelect.classList.remove('hidden');
+
+            // 누적 이월 진도 표시
+            if(backlogs.length > 0) {
+                backlogList.innerHTML = backlogs.map((b, idx) => `
+                    <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-rose-200 text-xs backlog-check-row">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <input type="checkbox" class="backlog-done-check w-4 h-4 text-emerald-600 rounded cursor-pointer" data-bidx="${idx}">
+                            <span class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px] font-extrabold">[${b.step_no}단계 출처]</span>
+                            <span class="font-bold text-slate-700">${b.textbook}</span>
+                            <span class="text-indigo-600 font-bold">${b.uncompleted_range}p</span>
+                            ${b.desc ? `<span class="text-slate-400 truncate">(${b.desc})</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] text-slate-500 whitespace-nowrap">오늘 해결:</span>
+                            <input type="number" placeholder="시작" class="b-sol-start bg-slate-50 border border-slate-200 p-1 rounded w-12 text-center">
+                            <span>~</span>
+                            <input type="number" placeholder="끝" class="b-sol-end bg-slate-50 border border-slate-200 p-1 rounded w-12 text-center">
+                        </div>
+                    </div>
+                `).join('');
+                backlogBox.classList.remove('hidden');
+            } else {
+                backlogBox.classList.add('hidden');
+            }
+        }
+
+        function applyRoadmapStepToProgress() {
+            const rmId = document.getElementById('log-roadmap-select').value;
+            const stepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
+            if(!rmId || isNaN(stepNo)) return;
+
+            const rm = allRoadmaps.find(r => r.id == rmId);
+            if(!rm) return;
+
+            let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+            const targetStep = steps.find(s => s.step_no === stepNo);
+            if(!targetStep) return;
+
+            const progContainer = document.getElementById('progress-container');
+            progContainer.innerHTML = '';
+
+            (targetStep.books || []).forEach(b => {
+                addProgressRow({
+                    textbook: b.textbook,
+                    start: b.start,
+                    end: b.end,
+                    target_start: b.start,
+                    target_end: b.end,
+                    step_no: targetStep.step_no,
+                    desc: b.desc ? `[${targetStep.step_no}단계] ${targetStep.title} - ${b.desc}` : `[${targetStep.step_no}단계] ${targetStep.title}`
+                });
+            });
+
+            calculateProgressRate();
+        }
+
+        function applyRoadmapStepDirectToLog(rmId, stepNo) {
+            switchMainTab('write');
+            document.getElementById('log-roadmap-select').value = rmId;
+            onLogRoadmapChange();
+            document.getElementById('log-roadmap-step-select').value = stepNo;
+            applyRoadmapStepToProgress();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // -------------------------------------------------------------
+        // 수업 일지 저장 및 미완료 진도 다음 단계로 자동 이월 로직
+        // -------------------------------------------------------------
 
         async function saveLog() {
             const editingId = document.getElementById('editing-log-id').value;
@@ -1126,15 +1696,32 @@
                 homeworkCheckList.push({ textbook, desc, start, end, total_pages, done_pages, rate });
             });
 
-            const progressRows = document.querySelectorAll('#progress-container > div');
+            // 진도 목록 및 미완료분 검출 (자동 이월용)
+            const progressRows = document.querySelectorAll('.prog-row');
             const progressList = [];
+            const newUncompletedBacklogs = [];
+
             progressRows.forEach(row => {
-                progressList.push({
-                    textbook: row.querySelector('.prog-tb').value,
-                    start: row.querySelector('.prog-start').value,
-                    end: row.querySelector('.prog-end').value,
-                    desc: row.querySelector('.prog-desc').value.trim()
-                });
+                const textbook = row.querySelector('.prog-tb').value;
+                const actualStart = row.querySelector('.prog-start').value;
+                const actualEnd = row.querySelector('.prog-end').value;
+                const desc = row.querySelector('.prog-desc').value.trim();
+                const targetEnd = row.dataset.targetEnd;
+                const stepNo = row.dataset.stepNo;
+
+                progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
+
+                // 원래 목표 끝 페이지보다 덜 나간 경우 미완료 꼬리표 생성
+                if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
+                    const uncompletedStart = parseInt(actualEnd) + 1;
+                    const uncompletedEnd = parseInt(targetEnd);
+                    newUncompletedBacklogs.push({
+                        step_no: stepNo || '해당',
+                        textbook: textbook,
+                        uncompleted_range: `${uncompletedStart}~${uncompletedEnd}`,
+                        desc: desc
+                    });
+                }
             });
 
             const hwRows = document.querySelectorAll('#homework-container > div');
@@ -1147,6 +1734,44 @@
                     desc: row.querySelector('.hw-desc').value.trim()
                 });
             });
+
+            // 선택된 로드맵이 있다면 이월 큐 갱신 및 단계 완료 업데이트
+            const selectedRmId = document.getElementById('log-roadmap-select').value;
+            const selectedStepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
+
+            if(selectedRmId) {
+                const rm = allRoadmaps.find(r => r.id == selectedRmId);
+                if(rm) {
+                    let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
+                    let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
+
+                    // 1. 오늘 체크박스로 해결된 기존 이월 항목 제거
+                    const backlogChecks = document.querySelectorAll('.backlog-done-check');
+                    const resolvedIndices = [];
+                    backlogChecks.forEach(chk => {
+                        if(chk.checked) {
+                            resolvedIndices.push(parseInt(chk.dataset.bidx));
+                        }
+                    });
+                    backlogs = backlogs.filter((_, idx) => !resolvedIndices.includes(idx));
+
+                    // 2. 오늘 새로 발생한 미완료 진도 추가
+                    if(newUncompletedBacklogs.length > 0) {
+                        backlogs.push(...newUncompletedBacklogs);
+                    }
+
+                    // 3. 오늘 진도를 완전히 끝마쳤다면 해당 단계 완료 체크
+                    if(!isNaN(selectedStepNo) && newUncompletedBacklogs.length === 0 && progressRows.length > 0) {
+                        const st = steps.find(s => s.step_no === selectedStepNo);
+                        if(st) st.completed = true;
+                    }
+
+                    await _supabase.from('roadmaps').update({
+                        backlogs: JSON.stringify(backlogs),
+                        steps: JSON.stringify(steps)
+                    }).eq('id', selectedRmId);
+                }
+            }
 
             const logData = { 
                 student_name, 
@@ -1170,8 +1795,9 @@
             } else {
                 const { error } = await _supabase.from('logs').insert([logData]);
                 if(error) return alert('저장 실패: ' + error.message);
-                alert('수업 일지가 저장되었습니다!');
+                alert('수업 일지가 저장되었습니다! (미완료 진도는 다음 회차로 자동 이월되었습니다)');
             }
+
             resetLogForm();
             loadData();
             switchMainTab('history');
@@ -1272,6 +1898,8 @@
             document.getElementById('daily-test-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-1">틀린 문제가 있다면 오답 원인과 함께 추가해주세요.</p>';
             document.getElementById('progress-container').innerHTML = '';
             document.getElementById('homework-container').innerHTML = '';
+            document.getElementById('progress-rate-box').classList.add('hidden');
+            document.getElementById('backlog-container').classList.add('hidden');
             addProgressRow();
             addHomeworkRow();
 
@@ -1288,254 +1916,7 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // [신규] 로드맵(Roadmap) 관리 로직 함수들
-        // -------------------------------------------------------------
-
-        function renderRoadmapView() {
-            const container = document.getElementById('roadmap-list-container');
-            container.innerHTML = '';
-
-            if(!currentSelectedStudent) {
-                container.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">선택된 학생이 없습니다. 상단에서 학생을 먼저 선택해주세요.</p>';
-                return;
-            }
-
-            const studentRoadmaps = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
-
-            if(studentRoadmaps.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
-                        <p class="text-xs text-slate-500 font-medium">현재 등록된 목표 로드맵이 없습니다.</p>
-                        <button onclick="openCreateRoadmapModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all">
-                            ⚡ 목표 로드맵 만들기 (1-2 기말 대비 10회 등)
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-
-            studentRoadmaps.forEach(rm => {
-                let items = [];
-                try {
-                    items = typeof rm.items === 'string' ? JSON.parse(rm.items) : (rm.items || []);
-                } catch(e) {}
-
-                const totalCount = items.length;
-                const doneCount = items.filter(it => it.done).length;
-                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-
-                let itemsHtml = items.map((it, idx) => {
-                    const isDone = it.done ? 'checked' : '';
-                    const doneClass = it.done ? 'line-through text-slate-400 font-normal' : 'text-slate-800 font-bold';
-                    return `
-                        <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/70 ${it.done ? 'bg-slate-50/80' : 'bg-white'} text-xs transition-all gap-2">
-                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                <input type="checkbox" ${isDone} onchange="toggleRoadmapItemDone('${rm.id}', ${idx})" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
-                                <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold ${it.done ? 'bg-slate-200 text-slate-600' : 'bg-indigo-100 text-indigo-700'} whitespace-nowrap">
-                                    ${it.session_no}회
-                                </span>
-                                <span class="text-slate-400 font-medium text-[11px] whitespace-nowrap">${it.date || ''}</span>
-                                <div class="truncate ${doneClass}">
-                                    <span>${it.title}</span> 
-                                    <span class="text-[11px] text-indigo-600 font-semibold ml-1">(${it.pages})</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="text" placeholder="메모" value="${it.memo || ''}" onchange="updateRoadmapItemMemo('${rm.id}', ${idx}, this.value)" class="text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-1 w-24 sm:w-36 text-slate-600">
-                                <button onclick="fillWriteFormFromRoadmap('${it.session_no}', '${it.date}', '${it.pages}', '${it.title}')" title="이 내용으로 수업일지 작성하기" class="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded-md border border-indigo-200 whitespace-nowrap">
-                                    일지 적용
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                container.innerHTML += `
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
-                            <div>
-                                <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
-                                    <span>🎯</span> ${rm.title}
-                                </h3>
-                                <p class="text-xs text-slate-400 mt-0.5">총 ${totalCount}회차 중 ${doneCount}회차 완료</p>
-                            </div>
-                            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                                <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">달성률 ${rate}%</span>
-                                <button onclick="deleteRoadmap('${rm.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500 px-2 py-1">삭제</button>
-                            </div>
-                        </div>
-
-                        <!-- 프로그레스 바 -->
-                        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                            <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: ${rate}%;"></div>
-                        </div>
-
-                        <!-- 회차별 체크리스트 목록 -->
-                        <div class="space-y-1.5 pt-1">
-                            ${itemsHtml}
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function openCreateRoadmapModal() {
-            if(!currentSelectedStudent) return alert('먼저 학생을 선택해주세요.');
-            document.getElementById('rm-title').value = '중1-2 기말고사 전범위 기본 완성 (10회차 완주)';
-            document.getElementById('rm-modal-items-container').innerHTML = '';
-            loadDefaultExamPlanTemplate();
-            document.getElementById('roadmap-modal').classList.remove('hidden');
-        }
-
-        function closeRoadmapModal() {
-            document.getElementById('roadmap-modal').classList.add('hidden');
-        }
-
-        function loadDefaultExamPlanTemplate() {
-            const template = [
-                { session_no: 1, date: '11/03(화)', title: '다각형 기초 & 대각선 개수', pages: 'p.76~81', memo: '' },
-                { session_no: 2, date: '11/05(목)', title: '다각형 내각과 외각의 크기', pages: 'p.86~91', memo: '' },
-                { session_no: 3, date: '11/07(토)', title: '원과 부채꼴 중심각·호·넓이', pages: 'p.98~105', memo: '' },
-                { session_no: 4, date: '11/10(화)', title: '부채꼴 색칠 계산 & 다면체 입문', pages: 'p.108~111, 118~123', memo: '' },
-                { session_no: 5, date: '11/12(목)', title: '정다면체 5종 & 회전체 성질', pages: 'p.124~133', memo: '' },
-                { session_no: 6, date: '11/17(화)', title: '입체도형 겉넓이와 부피 (기둥)', pages: 'p.142~146', memo: '' },
-                { session_no: 7, date: '11/19(목)', title: '입체도형 겉넓이와 부피 (뿔·구)', pages: 'p.148~155', memo: '' },
-                { session_no: 8, date: '11/24(화)', title: '통계: 도수분포표, 히스토그램', pages: 'p.160~173', memo: '' },
-                { session_no: 9, date: '11/26(목)', title: '통계: 상대도수와 분포 그래프', pages: 'p.182~187', memo: '' },
-                { session_no: 10, date: '12/01(화)', title: '전범위 핵심 공식 점검 & 오답 총정리', pages: '전범위 총복습', memo: '' }
-            ];
-
-            const container = document.getElementById('rm-modal-items-container');
-            container.innerHTML = '';
-            template.forEach(t => addRoadmapModalItemRow(t));
-        }
-
-        function addRoadmapModalItemRow(data = {}) {
-            const container = document.getElementById('rm-modal-items-container');
-            const rowId = 'rm-row-' + Math.random().toString(36).substring(2, 9);
-            const div = document.createElement('div');
-            div.className = 'flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs rm-modal-row';
-            div.id = rowId;
-            div.innerHTML = `
-                <input type="number" placeholder="회차" value="${data.session_no || ''}" class="rm-item-session bg-white border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
-                <input type="text" placeholder="날짜(예: 11/03)" value="${data.date || ''}" class="rm-item-date bg-white border border-slate-200 p-1.5 rounded-lg w-24 text-center">
-                <input type="text" placeholder="단원/내용" value="${data.title || ''}" class="rm-item-title bg-white border border-slate-200 p-1.5 rounded-lg flex-1 font-semibold">
-                <input type="text" placeholder="쪽수(예: p.76~81)" value="${data.pages || ''}" class="rm-item-pages bg-white border border-slate-200 p-1.5 rounded-lg w-24 text-center text-indigo-600 font-semibold">
-                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
-            `;
-            container.appendChild(div);
-        }
-
-        async function saveRoadmap() {
-            const student_name = currentSelectedStudent;
-            const title = document.getElementById('rm-title').value.trim();
-            if(!student_name) return alert('학생을 선택해주세요.');
-            if(!title) return alert('로드맵 제목을 입력해주세요.');
-
-            const rows = document.querySelectorAll('.rm-modal-row');
-            const items = [];
-            rows.forEach(r => {
-                const session_no = r.querySelector('.rm-item-session').value;
-                const date = r.querySelector('.rm-item-date').value.trim();
-                const itemTitle = r.querySelector('.rm-item-title').value.trim();
-                const pages = r.querySelector('.rm-item-pages').value.trim();
-                if(session_no && itemTitle) {
-                    items.push({
-                        session_no: parseInt(session_no),
-                        date,
-                        title: itemTitle,
-                        pages,
-                        done: false,
-                        memo: ''
-                    });
-                }
-            });
-
-            if(items.length === 0) return alert('최소 1개 이상의 회차 계획을 입력해주세요.');
-
-            const roadmapPayload = {
-                student_name,
-                title,
-                items: JSON.stringify(items)
-            };
-
-            const { error } = await _supabase.from('roadmaps').insert([roadmapPayload]);
-            if(error) return alert('로드맵 저장 실패: ' + error.message);
-
-            alert('목표 로드맵이 생성되었습니다!');
-            closeRoadmapModal();
-            loadData();
-        }
-
-        async function toggleRoadmapItemDone(roadmapId, itemIndex) {
-            const rm = allRoadmaps.find(r => r.id == roadmapId);
-            if(!rm) return;
-
-            let items = typeof rm.items === 'string' ? JSON.parse(rm.items) : rm.items;
-            if(items[itemIndex]) {
-                items[itemIndex].done = !items[itemIndex].done;
-            }
-
-            const { error } = await _supabase.from('roadmaps').update({ items: JSON.stringify(items) }).eq('id', roadmapId);
-            if(error) return alert('업데이트 실패: ' + error.message);
-            
-            rm.items = items;
-            renderRoadmapView();
-        }
-
-        async function updateRoadmapItemMemo(roadmapId, itemIndex, memoVal) {
-            const rm = allRoadmaps.find(r => r.id == roadmapId);
-            if(!rm) return;
-
-            let items = typeof rm.items === 'string' ? JSON.parse(rm.items) : rm.items;
-            if(items[itemIndex]) {
-                items[itemIndex].memo = memoVal;
-            }
-
-            await _supabase.from('roadmaps').update({ items: JSON.stringify(items) }).eq('id', roadmapId);
-            rm.items = items;
-        }
-
-        async function deleteRoadmap(roadmapId) {
-            if(confirm('이 목표 로드맵을 삭제하시겠습니까?')) {
-                await _supabase.from('roadmaps').delete().eq('id', roadmapId);
-                loadData();
-            }
-        }
-
-        // 로드맵 회차 정보를 수업 일지 폼으로 원클릭 복사
-        function fillWriteFormFromRoadmap(sessionNo, dateStr, pages, title) {
-            switchMainTab('write');
-            if(sessionNo) document.getElementById('log-session').value = sessionNo;
-            updateDailyTestNameTitle();
-
-            // 진도 목록에 자동 반영
-            const progContainer = document.getElementById('progress-container');
-            progContainer.innerHTML = '';
-            
-            // 쪽수 파싱 (예: p.76~81)
-            let startP = '', endP = '';
-            const match = pages.match(/(\d+)\s*~\s*(\d+)/);
-            if(match) {
-                startP = match[1];
-                endP = match[2];
-            }
-
-            const defaultTb = allTextbooks.find(tb => tb.student_name === currentSelectedStudent)?.title || '';
-            addProgressRow({
-                textbook: defaultTb,
-                start: startP,
-                end: endP,
-                desc: title
-            });
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // -------------------------------------------------------------
-        // 카톡 스크립트 생성 시 로드맵 진행 현황 자동 연동
-        // -------------------------------------------------------------
+        // 카톡 스크립트 생성 시 로드맵 및 이월 진도 상태 연계
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -1595,7 +1976,6 @@
             } catch(e) {}
             if (!nextHwStr) nextHwStr = '없음';
 
-            // 수업 집중도 및 종합 피드백
             let concentrationStr = '';
             if (log.concentration === '최상') {
                 concentrationStr = '🎯 수업 집중도: 최상 (오늘 수업에 매우 몰입하며 훌륭하게 참여했습니다! 👍)';
@@ -1615,19 +1995,26 @@
                 feedbackStr = `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}`;
             }
 
-            // [신규] 활성화된 로드맵 현황 문구 자동 생성
+            // 로드맵 누적 달성률 및 출처별 이월 상태 멘트
             let roadmapStatusStr = '';
             const studentRms = allRoadmaps.filter(r => r.student_name === log.student_name);
             if(studentRms.length > 0) {
                 const latestRm = studentRms[studentRms.length - 1];
-                let items = [];
-                try {
-                    items = typeof latestRm.items === 'string' ? JSON.parse(latestRm.items) : (latestRm.items || []);
-                } catch(e) {}
-                const doneCount = items.filter(it => it.done).length;
-                const totalCount = items.length;
-                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${latestRm.title}]\n- 전체 ${totalCount}회차 중 ${doneCount}회차 완료 (달성률: ${rate}%)\n\n`;
+                let steps = [];
+                let backlogs = [];
+                try { steps = typeof latestRm.steps === 'string' ? JSON.parse(latestRm.steps) : (latestRm.steps || []); } catch(e) {}
+                try { backlogs = typeof latestRm.backlogs === 'string' ? JSON.parse(latestRm.backlogs) : (latestRm.backlogs || []); } catch(e) {}
+
+                const totalSteps = steps.length;
+                const completedSteps = steps.filter(s => s.completed).length;
+                const rate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+                let backlogDetail = '';
+                if(backlogs.length > 0) {
+                    backlogDetail = '\n• [이월 누적 보완]:\n' + backlogs.map(b => `  - [${b.step_no}단계] ${b.textbook} ${b.uncompleted_range}p 잔여`).join('\n');
+                }
+
+                roadmapStatusStr = `🎯 [목표 로드맵: ${latestRm.title}]\n- 전체 ${totalSteps}단계 중 ${completedSteps}단계 완료 (${rate}%)${backlogDetail}\n\n`;
             }
 
             const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [진도 현황]\n${progressStr}\n\n${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
@@ -1741,7 +2128,7 @@
                 students: allStudents,
                 textbooks: allTextbooks,
                 logs: allLogs,
-                roadmaps: allRoadmaps // 로드맵 데이터 백업 추가
+                roadmaps: allRoadmaps
             };
 
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -1751,7 +2138,7 @@
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
-            alert('백업 파일(로드맵 포함)이 성공적으로 다운로드되었습니다!');
+            alert('백업 파일(로드맵 및 이월 진도 포함)이 다운로드되었습니다!');
         }
 
         async function importDataFromJson() {
@@ -1770,7 +2157,7 @@
                         return alert('올바른 백업 파일 형식이 아닙니다.');
                     }
 
-                    if (!confirm(`백업 파일에 포함된 학생 ${parsed.students.length}명, 교재 ${parsed.textbooks ? parsed.textbooks.length : 0}개, 일지 ${parsed.logs.length}개 데이터를 복구하시겠습니까?`)) {
+                    if (!confirm(`백업 파일 데이터를 복구하시겠습니까?`)) {
                         return;
                     }
 
@@ -2006,23 +2393,21 @@
             document.getElementById('pdf-stat-hw').innerText = avgHw;
             document.getElementById('pdf-stat-test').innerText = hasTestRecord ? `${avgTestNum}` : '미실시';
 
-            // [신규] PDF 리포트 내 로드맵 요약 바 렌더링
+            // PDF 리포트 내 로드맵 요약 바
             const roadmapContentEl = document.getElementById('pdf-roadmap-content');
             const studentRms = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
             if(studentRms.length > 0) {
                 const latestRm = studentRms[studentRms.length - 1];
-                let items = [];
-                try {
-                    items = typeof latestRm.items === 'string' ? JSON.parse(latestRm.items) : (latestRm.items || []);
-                } catch(e) {}
-                const doneCount = items.filter(it => it.done).length;
-                const totalCount = items.length;
-                const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+                let steps = [];
+                try { steps = typeof latestRm.steps === 'string' ? JSON.parse(latestRm.steps) : (latestRm.steps || []); } catch(e) {}
+                const completedSteps = steps.filter(s => s.completed).length;
+                const totalSteps = steps.length;
+                const rate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
                 roadmapContentEl.innerHTML = `
                     <div class="flex justify-between items-center font-bold">
                         <span>목표명: ${latestRm.title}</span>
-                        <span class="text-violet-700">${doneCount} / ${totalCount}회차 완주 (${rate}%)</span>
+                        <span class="text-violet-700">${completedSteps} / ${totalSteps}단계 완주 (${rate}%)</span>
                     </div>
                     <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
                         <div class="bg-violet-600 h-2.5 rounded-full" style="width: ${rate}%;"></div>
