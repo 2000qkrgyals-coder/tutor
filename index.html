@@ -86,7 +86,7 @@
         <header class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
             <div>
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
-                    <span>📚</span> 수학 과외 스마트 관리
+                    <span>📚</span> 수학 과외 스마트 관리 플랫폼
                 </h1>
                 <p class="text-indigo-100 text-xs mt-1">단계별 목표 로드맵, 실제 진행 상세 내역, 데일리테스트 및 통계를 스마트하게 관리하세요.</p>
             </div>
@@ -1394,7 +1394,7 @@
             }
         }
 
-        // [핵심] 목표 로드맵 3열 분할 뷰: 기준 계획 vs 이전 이월분 vs 실제 수행/해결 상세 내역
+        // [수정] 로드맵 3열 뷰: 사후 완결 자동 승격, 이월 보완 내역 전수 출력, 2열 노출 단계 정밀 제어
         function renderRoadmapView() {
             const container = document.getElementById('roadmap-list-container');
             container.innerHTML = '';
@@ -1424,6 +1424,21 @@
                 try { steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []); } catch(e) {}
                 try { backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []); } catch(e) {}
 
+                // [핵심 1] 사후 완결 판정: 미완료가 발생했었더라도, 해당 단계 출처의 미해결(unresolved) 항목이 0건이면 자동으로 완료(completed=true) 처리
+                steps.forEach(st => {
+                    const stepUnresolved = backlogs.filter(b => String(b.step_no) === String(st.step_no) && b.status !== 'resolved');
+                    // 해당 단계로 작성된 일지가 최소 1회 이상 있고, 남은 미완료 부채가 0건이면 완료로 승격
+                    const hasLog = allLogs.some(l => {
+                        try {
+                            const info = typeof l.roadmap_info === 'string' ? JSON.parse(l.roadmap_info || '{}') : (l.roadmap_info || {});
+                            return String(info.roadmap_id) === String(rm.id) && String(info.step_no) === String(st.step_no);
+                        } catch(e) { return false; }
+                    });
+                    if (hasLog && stepUnresolved.length === 0) {
+                        st.completed = true;
+                    }
+                });
+
                 const totalSteps = steps.length;
                 const completedSteps = steps.filter(s => s.completed).length;
                 const progressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
@@ -1440,32 +1455,7 @@
                         </div>
                     `).join('');
 
-                    // 2열: 이전 단계 누적 이월분 (아직 해결 안 된 미완료 항목만 띄우고, 해결된 항목은 즉시 영구 제외)
-                    const priorBacklogs = backlogs.filter(b => {
-                        const bStep = parseInt(b.step_no) || 0;
-                        const thisStep = parseInt(st.step_no) || 0;
-                        // 이전 단계 출처이면서, 아직 해결되지 않은(unresolved) 항목만 통과
-                        return bStep < thisStep && b.status !== 'resolved';
-                    });
-
-                    let priorBacklogHtml = '';
-                    if(priorBacklogs.length > 0) {
-                        priorBacklogHtml = priorBacklogs.map(b => `
-                            <div class="text-[10px] p-1.5 rounded border bg-rose-50 border-rose-200 text-rose-800 flex justify-between items-center">
-                                <span>[${b.step_no}단계 출처] <b>${b.textbook}</b> ${b.uncompleted_range}p</span>
-                                <span class="px-1.5 py-0.5 rounded font-extrabold text-[9px] bg-rose-200 text-rose-700">
-                                    미완료 잔여
-                                </span>
-                            </div>
-                        `).join('');
-                    } else {
-                        priorBacklogHtml = '<div class="text-[11px] text-slate-400 italic">이전 밀린 진도 없음 ✨</div>';
-                    }
-
-                    // 3열: 실제 수행 상세 내역 (일지가 삭제되면 즉시 사라지고 '진행 대기 중'으로 전환)
-                    const thisStepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
-                    
-                    // 현재 메모리에 살아있는 유효한 일지만 엄격히 매칭
+                    // 해당 단계와 매칭되는 일지들 조회
                     const matchedLogs = allLogs.filter(l => {
                         if(!l.id || l.student_name !== rm.student_name) return false;
                         try {
@@ -1474,9 +1464,51 @@
                         } catch(e) { return false; }
                     });
 
+                    // 이 단계에서 해결 처리된 미완료 ID 목록 수집
+                    const resolvedBidsInThisStep = [];
+                    matchedLogs.forEach(l => {
+                        try {
+                            const info = typeof l.roadmap_info === 'string' ? JSON.parse(l.roadmap_info || '{}') : (l.roadmap_info || {});
+                            (info.resolved_bids || []).forEach(bid => resolvedBidsInThisStep.push(String(bid)));
+                        } catch(e) {}
+                    });
+
+                    // [핵심 2] 2열: 이전 단계 누적 이월분 노출 제어
+                    // - 이전 단계 출처(b.step_no < st.step_no) 중
+                    // - 아직 미해결(unresolved)이거나, '바로 이 단계(st.step_no)'에서 해결 처리된 항목까지만 노출!
+                    // - 그 이전 단계에서 이미 해결 완료된 항목은 이 단계부터 깔끔하게 제외
+                    const priorBacklogs = backlogs.filter(b => {
+                        const bStep = parseInt(b.step_no) || 0;
+                        const thisStep = parseInt(st.step_no) || 0;
+                        if (bStep >= thisStep) return false;
+
+                        if (b.status !== 'resolved') return true;
+                        // 이 단계 수업에서 해결된 항목이면 이번 단계 카드까지만 해결됨 태그로 노출
+                        if (resolvedBidsInThisStep.includes(String(b.id))) return true;
+                        return false;
+                    });
+
+                    let priorBacklogHtml = '';
+                    if(priorBacklogs.length > 0) {
+                        priorBacklogHtml = priorBacklogs.map(b => {
+                            const isResolvedHere = resolvedBidsInThisStep.includes(String(b.id)) || b.status === 'resolved';
+                            return `
+                                <div class="text-[10px] p-1.5 rounded border ${isResolvedHere ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'} flex justify-between items-center">
+                                    <span>[${b.step_no}단계 출처] <b>${b.textbook}</b> ${b.uncompleted_range}p</span>
+                                    <span class="px-1.5 py-0.5 rounded font-extrabold text-[9px] ${isResolvedHere ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-700'}">
+                                        ${isResolvedHere ? '이 단계에서 해결완료 ✓' : '미완료 잔여'}
+                                    </span>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        priorBacklogHtml = '<div class="text-[11px] text-slate-400 italic">이전 밀린 진도 없음 ✨</div>';
+                    }
+
+                    // [핵심 3] 3열: 실제 수행 상세 내역 (당일 정규 진도 + 오늘 보완 해결한 이전 미완료 진도 전수 출력)
+                    const thisStepBacklogs = backlogs.filter(b => String(b.step_no) === String(st.step_no));
                     let actualStatusHtml = '';
 
-                    // 일지가 삭제되어 matchedLogs가 0건이면 무조건 '진행 대기 중'으로 초기화
                     if(matchedLogs.length > 0) {
                         actualStatusHtml = matchedLogs.map(l => {
                             let pList = [];
@@ -1484,22 +1516,35 @@
                             let actualDetails = pList.map(p => `<span class="font-bold text-indigo-700">[${p.textbook}]</span> ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`).join(', ');
                             if(!actualDetails) actualDetails = '진도 기록 없음';
 
+                            // 이 회차에서 보완 해결한 이전 미완료 항목들 추출
+                            let resolvedDetails = '';
+                            try {
+                                const info = typeof l.roadmap_info === 'string' ? JSON.parse(l.roadmap_info || '{}') : (l.roadmap_info || {});
+                                const rbids = info.resolved_bids || [];
+                                const rItems = backlogs.filter(b => rbids.includes(String(b.id)));
+                                if (rItems.length > 0) {
+                                    resolvedDetails = rItems.map(rb => `<div class="text-[10px] text-emerald-700 font-semibold pl-1">🎯 [이월보완완료] [${rb.step_no}단계 출처] ${rb.textbook} ${rb.uncompleted_range}p 해결 ✓</div>`).join('');
+                                }
+                            } catch(e) {}
+
                             return `
                                 <div class="bg-white p-2 rounded-lg border border-indigo-100 space-y-1 shadow-2xs">
                                     <div class="flex justify-between items-center">
                                         <span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">📅 ${l.date} (${l.session_number || '수업'}회차)</span>
                                         <span class="text-[10px] ${st.completed ? 'text-emerald-600 font-extrabold' : 'text-amber-600 font-bold'}">${st.completed ? '완주 완료 ✓' : '진행 완료'}</span>
                                     </div>
-                                    <div class="text-[11px] text-slate-700 font-medium pl-1">• 실제 진행: ${actualDetails}</div>
+                                    <div class="text-[11px] text-slate-700 font-medium pl-1">• 정규 진도: ${actualDetails}</div>
+                                    ${resolvedDetails}
                                 </div>
                             `;
                         }).join('');
+                    } else if(st.completed) {
+                        actualStatusHtml = `<div class="bg-emerald-50 text-emerald-800 p-2 rounded-lg font-bold">✓ 완주 완료 (사후 보완 완료)</div>`;
                     } else {
-                        // 일지가 없으면 무조건 깔끔하게 비움
                         actualStatusHtml = `<div class="text-[11px] text-slate-400 italic p-1">진행 대기 중</div>`;
                     }
 
-                    // 이 단계에서 밀린 쪽수 및 해결 일시
+                    // 이 단계에서 새롭게 밀린 쪽수 및 해결 일시 표기
                     if(thisStepBacklogs.length > 0) {
                         const bDetails = thisStepBacklogs.map(b => `
                             <div class="text-[11px] p-1.5 rounded bg-rose-50 border border-rose-200 text-rose-900 space-y-0.5">
@@ -1533,7 +1578,7 @@
                             </div>
 
                             <div class="space-y-1.5 flex flex-col justify-center">
-                                <div class="text-[11px] font-extrabold text-slate-600">실제 수행 상세 내역:</div>
+                                <div class="text-[11px] font-extrabold text-slate-600">실제 수행 및 해결 상세 내역:</div>
                                 <div class="space-y-1">${actualStatusHtml}</div>
                             </div>
                         </div>
@@ -1547,7 +1592,7 @@
                                 <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
                                     <span>🎯</span> ${rm.title}
                                 </h3>
-                                <p class="text-xs text-slate-400 mt-0.5">총 ${totalSteps}단계 중 ${completedSteps}단계 완료 • 미해결 이월 ${activeBacklogs.length}건</p>
+                                <p class="text-xs text-slate-400 mt-0.5">총 ${totalSteps}단계 중 ${completedSteps}단계 완주 • 미해결 이월 ${activeBacklogs.length}건</p>
                             </div>
                             <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                                 <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">전체 달성률 ${progressRate}%</span>
@@ -1968,7 +2013,6 @@
 
                 progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
 
-                // 목표치보다 덜 나간 경우 미완료 범위 계산
                 if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
                     const uncompletedStart = parseInt(actualEnd) + 1;
                     const uncompletedEnd = parseInt(targetEnd);
@@ -2023,7 +2067,7 @@
                     let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
                     let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
 
-                    // [핵심 교정 1] 수정 모드일 때 과거 해결 기록 원복
+                    // 수정 모드일 때 과거 해결 기록 원복
                     if(editingId) {
                         const prevLog = allLogs.find(l => l.id == editingId);
                         if(prevLog) {
@@ -2040,15 +2084,17 @@
                         }
                     }
 
-                    // [핵심 교정 2] 해당 단계(selectedStepNo)에서 과거에 발생했던 미완료 내역을 전부 제거 (중복 누적 원천 차단)
+                    // 현재 단계에서 과거에 발생했던 미완료 내역 제거 (중복 누적 차단)
                     if(!isNaN(selectedStepNo)) {
                         backlogs = backlogs.filter(b => String(b.step_no) !== String(selectedStepNo));
                     }
 
-                    // 3. 이전 단계 미완료 해결 처리 (부분 해결 분할 포함)
+                    // 이전 단계 미완료 해결 처리 (부분 해결 분할 지원)
+                    const affectedOriginStepNos = new Set();
                     resolvedActionList.forEach(act => {
                         const found = backlogs.find(b => b.id && String(b.id) === act.bid);
                         if(found) {
+                            affectedOriginStepNos.add(String(found.step_no));
                             const rangeMatch = String(found.uncompleted_range).match(/(\d+)\s*~\s*(\d+)/);
                             if(rangeMatch) {
                                 const origStart = parseInt(rangeMatch[1]);
@@ -2076,18 +2122,27 @@
                         }
                     });
 
-                    // 4. 이번에 새롭게 발생한 해당 단계 미완료 단 1건 추가
+                    // 이번에 새롭게 발생한 해당 단계 미완료 추가
                     if(newBacklogs.length > 0) {
                         backlogs.push(...newBacklogs);
                     }
 
-                    // 5. 단계 완주 상태 동기화: 미완료 발생 시 미완주(false), 모두 끝마쳤으면 완주(true)
+                    // 1. 현재 진행 단계 완주 판정
                     if(!isNaN(selectedStepNo) && steps.length > 0) {
                         const st = steps.find(s => s.step_no === selectedStepNo);
                         if(st) {
                             st.completed = (newBacklogs.length === 0 && progressRows.length > 0);
                         }
                     }
+
+                    // [핵심 4] 역추적 완결 판정: 해결된 미완료의 원래 출처 단계(예: 1단계)에 남은 부채가 0건이면 그 출처 단계도 즉시 완주(completed=true)로 승격!
+                    affectedOriginStepNos.forEach(origNo => {
+                        const remainUnresolved = backlogs.filter(b => String(b.step_no) === String(origNo) && b.status !== 'resolved');
+                        const originStep = steps.find(s => String(s.step_no) === String(origNo));
+                        if(originStep) {
+                            originStep.completed = (remainUnresolved.length === 0);
+                        }
+                    });
 
                     await _supabase.from('roadmaps').update({
                         backlogs: JSON.stringify(backlogs),
@@ -2132,7 +2187,7 @@
             await loadData();
             switchMainTab('history');
         }
-
+        
         function resetLogForm() {
             document.getElementById('editing-log-id').value = '';
             document.getElementById('log-session').value = '';
@@ -2346,7 +2401,7 @@
             if(currentMainTab === 'roadmap') renderRoadmapView();
         }
 
-        // [수정] 카카오톡 브리핑: 오늘 구체적 진도 내역 + 현재 잔여 미완료 목록 자동 연동
+        // [수정] 카카오톡 브리핑: 오늘 나간 정규 진도 + 오늘 완벽 보완 해결한 미완료 진도 완벽 포함
         function generateKakaoScript(id) {
             const log = allLogs.find(l => l.id == id);
             if(!log) return;
@@ -2354,15 +2409,39 @@
             const sessionTitle = log.session_number ? `${log.session_number}회차` : '수업';
             const dateStr = log.date || '';
             
-            // 오늘 구체적으로 나간 진도 내역
-            let progressStr = '';
+            // 1. 오늘 나간 정규 진도
+            let progressListStr = [];
             try {
                 const pList = JSON.parse(log.note || '[]');
                 if (pList.length > 0) {
-                    progressStr = pList.map(p => `• [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? ' ('+p.desc+')' : ''}`).join('\n');
+                    pList.forEach(p => {
+                        progressListStr.push(`• [정규 진도] [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`);
+                    });
                 }
             } catch(e) {}
-            if (!progressStr) progressStr = `• ${log.textbook || ''} ${log.start_page || ''}~${log.end_page || ''}p`;
+            if (progressListStr.length === 0 && log.textbook) {
+                progressListStr.push(`• [정규 진도] [${log.textbook}] ${log.start_page || ''}~${log.end_page || ''}p`);
+            }
+
+            // 2. [핵심] 오늘 완벽히 해결 처리한 이전 단계 미완료 진도 포함
+            let rmInfo = {};
+            try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
+
+            const studentRms = allRoadmaps.filter(r => r.student_name === log.student_name);
+            const targetRm = (rmInfo.roadmap_id) ? studentRms.find(r => String(r.id) === String(rmInfo.roadmap_id)) : (studentRms.length > 0 ? studentRms[studentRms.length - 1] : null);
+
+            if(targetRm) {
+                let backlogs = [];
+                try { backlogs = typeof targetRm.backlogs === 'string' ? JSON.parse(targetRm.backlogs) : (targetRm.backlogs || []); } catch(e) {}
+                const rbids = rmInfo.resolved_bids || [];
+                const resolvedItems = backlogs.filter(b => rbids.includes(String(b.id)));
+                
+                resolvedItems.forEach(rb => {
+                    progressListStr.push(`• [이월 보완] [${rb.step_no}단계 출처] [${rb.textbook}] ${rb.uncompleted_range}p (완벽 보완 완료! 👏)`);
+                });
+            }
+
+            const progressStr = progressListStr.length > 0 ? progressListStr.join('\n') : '• 진도 확인 완료';
 
             let hwCheckStr = '';
             try {
@@ -2422,14 +2501,8 @@
             let feedbackNoteStr = log.feedback_note ? `${log.feedback_note}` : '';
             let feedbackStr = (concentrationStr || feedbackNoteStr) ? `[선생님 코멘트]\n${concentrationStr}${concentrationStr && feedbackNoteStr ? '\n' : ''}${feedbackNoteStr}` : '';
 
-            // 로드맵 목표 대비 당일 소화율 + 현재 미완료 목록 생성
             let roadmapStatusStr = '';
             let uncompletedListStr = '';
-            let rmInfo = {};
-            try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
-
-            const studentRms = allRoadmaps.filter(r => r.student_name === log.student_name);
-            const targetRm = (rmInfo.roadmap_id) ? studentRms.find(r => String(r.id) === String(rmInfo.roadmap_id)) : (studentRms.length > 0 ? studentRms[studentRms.length - 1] : null);
 
             if(targetRm) {
                 let steps = [];
@@ -2443,17 +2516,16 @@
                 const curStepNo = rmInfo.step_no ? `${rmInfo.step_no}단계` : `${completedSteps + 1}단계`;
                 let dailyRateText = (rmInfo.rate !== undefined && rmInfo.rate !== null) ? `${rmInfo.rate}% (${rmInfo.detail})` : '정상 진행';
 
-                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${targetRm.title}]\n• 진행 단계: [${curStepNo}]\n• 오늘 로드맵 목표 진도 소화율: ${dailyRateText} 🚀\n• 전체 로드맵 누적 달성률: ${totalProgressRate}% (${completedSteps}/${totalSteps}단계 완료)\n\n`;
+                roadmapStatusStr = `🎯 [목표 로드맵 진행 현황: ${targetRm.title}]\n• 진행 단계: [${curStepNo}]\n• 오늘 로드맵 목표 진도 소화율: ${dailyRateText} 🚀\n• 전체 로드맵 누적 달성률: ${totalProgressRate}% (${completedSteps}/${totalSteps}단계 완주)\n\n`;
 
-                // 현재 해결되지 않고 남아있는 미완료 목록 추출
                 const activeBacklogs = backlogs.filter(b => b.status !== 'resolved');
                 if(activeBacklogs.length > 0) {
-                    const bItems = activeBacklogs.map(b => `  - [${b.step_no}단계 미완료] ${b.textbook} ${b.uncompleted_range}p 잔여`).join('\n');
+                    const bItems = activeBacklogs.map(b => `  - [${b.step_no}단계 출처] ${b.textbook} ${b.uncompleted_range}p 잔여`).join('\n');
                     uncompletedListStr = `⚠️ [현재 미완료 보완 필요 항목]\n${bItems}\n*(※ 다음 수업 시작 시 우선 밀착 보완 진행합니다)*\n\n`;
                 }
             }
 
-            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [오늘 나간 진도]\n${progressStr}\n\n${uncompletedListStr}${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
+            const script = `안녕하세요! ${log.student_name} 학부모님, ${dateStr} (${sessionTitle}) 수학 과외 수업 리포트 전송해 드립니다. 😊\n\n${roadmapStatusStr}📖 [오늘 완료한 진도]\n${progressStr}\n\n${uncompletedListStr}${hwCheckStr}\n\n${dtStr}\n\n✏️ [다음 숙제 안내]\n${nextHwStr}\n\n${feedbackStr ? feedbackStr + '\n\n' : ''}궁금하신 점이 있으시면 편하게 문의 주세요. 감사합니다!`;
 
             document.getElementById('kakao-script-text').value = script;
             document.getElementById('kakao-modal').classList.remove('hidden');
