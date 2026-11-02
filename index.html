@@ -86,7 +86,7 @@
         <header class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
             <div>
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
-                    <span>📚</span> 수학 과외 스마트 관리
+                    <span>📚</span> 수학 과외 스마트 관리 플랫폼
                 </h1>
                 <p class="text-indigo-100 text-xs mt-1">단계별 목표 로드맵, 실제 진행 상세 내역, 데일리테스트 및 통계를 스마트하게 관리하세요.</p>
             </div>
@@ -1336,7 +1336,7 @@
             container.appendChild(div);
         }
 
-        // [핵심] 당일 로드맵 목표 진도 소화율(%) 계산 (체크된 이전 미완료 진도 포함 여부 자동 반영)
+        // [수정] 쪽수 계산 오차 원천 차단 및 정밀 계산
         function calculateProgressRate() {
             const selectedRmId = document.getElementById('log-roadmap-select').value;
             const selectedStepNo = document.getElementById('log-roadmap-step-select').value;
@@ -1365,17 +1365,20 @@
                 }
             });
 
-            // 체크된 이전 미완료 진도만 분모와 분자에 합산
+            // 체크된 미완료 해결 분량 정확히 분모/분자 합산
             const backlogRows = document.querySelectorAll('.backlog-check-row');
             backlogRows.forEach(br => {
                 const chk = br.querySelector('.backlog-include-check');
                 if(chk && chk.checked) {
-                    const bTotal = parseInt(br.dataset.backlogTotal) || 0;
-                    const bSolStart = parseInt(br.querySelector('.b-sol-start').value);
-                    const bSolEnd = parseInt(br.querySelector('.b-sol-end').value);
-                    targetTotal += bTotal;
-                    if(!isNaN(bSolStart) && !isNaN(bSolEnd) && bSolEnd >= bSolStart) {
-                        actualTotal += (bSolEnd - bSolStart + 1);
+                    const solStart = parseInt(br.querySelector('.b-sol-start').value);
+                    const solEnd = parseInt(br.querySelector('.b-sol-end').value);
+                    const totalPages = parseInt(br.dataset.backlogTotal) || 0;
+
+                    if(totalPages > 0) {
+                        targetTotal += totalPages;
+                    }
+                    if(!isNaN(solStart) && !isNaN(solEnd) && solEnd >= solStart) {
+                        actualTotal += (solEnd - solStart + 1);
                     }
                 }
             });
@@ -1806,23 +1809,24 @@
 
             const curStepNum = parseInt(stepSelect.value) || 0;
 
-            // [핵심 교정] 현재 선택된 단계보다 엄격히 이전 단계(< curStepNum) 출처의 미완료만 필터링
+            // [핵심 해결] 이미 이전 단계에서 완료된 것은 절대 안 뜸. 
+            // 오직 미해결 상태이거나, 현재 수정 중인 이 회차 일지에서 직접 해결 처리했던 항목만 노출!
             const targetBacklogs = backlogs.filter(b => {
                 const bStep = parseInt(b.step_no) || 0;
-                // 자기 자신 또는 이후 단계 출처는 상단 이월창에 절대 노출하지 않음
                 if (curStepNum > 0 && bStep >= curStepNum) return false;
 
-                if (b.status !== 'resolved') return true;
-                if (resolvedBids && resolvedBids.includes(String(b.id))) return true;
-                return false;
+                const isResolvedByThisLog = resolvedBids && resolvedBids.includes(String(b.id));
+                // 완전히 끝난 것은 제외, 단 현재 수정창에서 해결했던 항목은 체크 상태로 복원
+                if (b.status === 'resolved' && !isResolvedByThisLog) return false;
+                return true;
             });
 
             if(targetBacklogs.length > 0) {
                 backlogList.innerHTML = targetBacklogs.map((b, idx) => {
                     const rangeMatch = String(b.uncompleted_range).match(/(\d+)\s*~\s*(\d+)/);
-                    const bStart = rangeMatch ? rangeMatch[1] : '';
-                    const bEnd = rangeMatch ? rangeMatch[2] : '';
-                    const bTotal = (rangeMatch && parseInt(bEnd) >= parseInt(bStart)) ? (parseInt(bEnd) - parseInt(bStart) + 1) : 0;
+                    const bStart = rangeMatch ? parseInt(rangeMatch[1]) : 0;
+                    const bEnd = rangeMatch ? parseInt(rangeMatch[2]) : 0;
+                    const bTotal = (bEnd >= bStart && bStart > 0) ? (bEnd - bStart + 1) : 0;
                     
                     const isChecked = (resolvedBids && resolvedBids.includes(String(b.id))) ? 'checked' : '';
 
@@ -1836,10 +1840,10 @@
                                 ${b.desc ? `<span class="text-slate-400 truncate">(${b.desc})</span>` : ''}
                             </div>
                             <div class="flex items-center gap-1.5 pl-6 sm:pl-0">
-                                <span class="text-[11px] text-slate-500 whitespace-nowrap">오늘 해결:</span>
-                                <input type="number" placeholder="시작" value="${bStart}" oninput="calculateProgressRate()" class="b-sol-start bg-slate-50 border border-slate-200 p-1 rounded w-14 text-center font-bold">
+                                <span class="text-[11px] text-slate-500 whitespace-nowrap">오늘 해결 쪽수:</span>
+                                <input type="number" placeholder="시작" value="${bStart || ''}" oninput="calculateProgressRate()" class="b-sol-start bg-slate-50 border border-slate-200 p-1 rounded w-14 text-center font-bold">
                                 <span>~</span>
-                                <input type="number" placeholder="끝" value="${bEnd}" oninput="calculateProgressRate()" class="b-sol-end bg-slate-50 border border-slate-200 p-1 rounded w-14 text-center font-bold">
+                                <input type="number" placeholder="끝" value="${bEnd || ''}" oninput="calculateProgressRate()" class="b-sol-end bg-slate-50 border border-slate-200 p-1 rounded w-14 text-center font-bold">
                             </div>
                         </div>
                     `;
@@ -3134,13 +3138,46 @@
                 sortedLogs.forEach(l => {
                     const timeStr = (l.start_time && l.end_time) ? `${l.start_time} ~ ${l.end_time}` : '시간 미입력';
                     
+                    // 1. 당일 정규 진도 목록
                     let progressHtml = '';
                     let progressList = [];
                     try { progressList = JSON.parse(l.note || '[]'); } catch(e) {}
                     if (Array.isArray(progressList) && progressList.length > 0) {
-                        progressHtml = progressList.map(p => `<div class="text-xs bg-indigo-50/60 p-2 rounded-xl border border-indigo-100/80 my-1 flex items-center gap-1.5"><span class="font-bold text-indigo-700">📖 [진도]</span> <b>[${p.textbook}]</b> <span class="text-slate-600">${p.start}~${p.end}p</span> ${p.desc ? '<span class="text-slate-400">('+p.desc+')</span>' : ''}</div>`).join('');
-                    } else {
-                        progressHtml = `<div class="text-xs bg-indigo-50/60 p-2 rounded-xl border border-indigo-100/80 my-1 flex items-center gap-1.5"><span class="font-bold text-indigo-700">📖 [진도]</span> ${l.textbook ? '['+l.textbook+']' : ''} <span class="text-slate-600">${l.start_page}p~${l.end_page}p</span></div>`;
+                        progressHtml = progressList.map(p => `
+                            <div class="text-xs bg-indigo-50/60 p-2 rounded-xl border border-indigo-100/80 my-1 flex items-center justify-between">
+                                <div><span class="font-bold text-indigo-700">📖 [정규진도]</span> <b>[${p.textbook}]</b> <span class="text-slate-700 font-bold">${p.start}~${p.end}p</span> ${p.desc ? '<span class="text-slate-400">('+p.desc+')</span>' : ''}</div>
+                                <span class="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-extrabold">${(parseInt(p.end) >= parseInt(p.start)) ? (parseInt(p.end)-parseInt(p.start)+1)+'p 완료' : ''}</span>
+                            </div>
+                        `).join('');
+                    }
+
+                    // 2. [신규] 그날 보완 해결한 이전 미완료 진도 목록 추출
+                    let resolvedBacklogHtml = '';
+                    let rmInfo = {};
+                    try { rmInfo = JSON.parse(l.roadmap_info || '{}'); } catch(e) {}
+                    
+                    if (rmInfo.roadmap_id) {
+                        const targetRm = allRoadmaps.find(r => r.id == rmInfo.roadmap_id);
+                        if (targetRm) {
+                            let backlogs = [];
+                            try { backlogs = typeof targetRm.backlogs === 'string' ? JSON.parse(targetRm.backlogs) : (targetRm.backlogs || []); } catch(e) {}
+                            const resolvedItems = backlogs.filter(b => rmInfo.resolved_bids && rmInfo.resolved_bids.includes(String(b.id)));
+                            
+                            if (resolvedItems.length > 0) {
+                                resolvedBacklogHtml = resolvedItems.map(b => `
+                                    <div class="text-xs bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/80 my-1 flex items-center justify-between">
+                                        <div><span class="font-bold text-emerald-700">🎯 [이월해결]</span> [${b.step_no}단계 출처] <b>[${b.textbook}]</b> <span class="text-emerald-900 font-bold">${b.uncompleted_range}p 완료</span> ${b.desc ? '<span class="text-slate-400">('+b.desc+')</span>' : ''}</div>
+                                        <span class="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-black">보완완료 ✓</span>
+                                    </div>
+                                `).join('');
+                            }
+                        }
+                    }
+
+                    // 당일 로드맵 달성률 배지
+                    let roadmapRateBadge = '';
+                    if (rmInfo.rate !== undefined && rmInfo.rate !== null) {
+                        roadmapRateBadge = `<span class="bg-violet-100 text-violet-800 text-[11px] font-extrabold px-2 py-0.5 rounded-lg border border-violet-200">🎯 목표 진도 소화율: ${rmInfo.rate}% (${rmInfo.detail || ''})</span>`;
                     }
 
                     let homeworkHtml = '';
@@ -3202,10 +3239,6 @@
                                     <span>🔥 총 이행률 (전체 ${totalSum}p 중 ${doneSum}p 완료)</span>
                                     <span class="bg-indigo-600 text-white px-2 py-0.5 rounded-lg">${overallRate}%</span>
                                 </div>
-                            `;
-                        } else {
-                            checkHtml = `<div class="text-xs bg-amber-50/70 p-3 rounded-xl border border-amber-200/70 space-y-1.5 mt-2 text-amber-900">
-                                <div class="font-bold">📋 지난 숙제 검사 결과: <b>숙제 없음 (100% 처리)</b></div>
                             </div>`;
                         }
                     } catch(e) {}
@@ -3244,14 +3277,18 @@
                                     <button onclick="deleteLog('${l.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold px-2.5 py-1.5 rounded-lg transition-all">삭제</button>
                                 </div>
                             </div>
-                            <div class="text-xs font-semibold text-slate-400 flex items-center gap-2">
-                                <span>📅 ${l.date}</span>
-                                <span>•</span>
-                                <span>⏰ ${timeStr}</span>
+                            <div class="text-xs font-semibold text-slate-400 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span>📅 ${l.date}</span>
+                                    <span>•</span>
+                                    <span>⏰ ${timeStr}</span>
+                                </div>
+                                ${roadmapRateBadge}
                             </div>
-                            <div class="space-y-1.5 pt-0.5">
-                                <div>${progressHtml}</div>
-                                <div>${homeworkHtml}</div>
+                            <div class="space-y-1 pt-0.5">
+                                ${resolvedBacklogHtml}
+                                ${progressHtml}
+                                ${homeworkHtml}
                             </div>
                             ${checkHtml}
                             ${dtHtml}
