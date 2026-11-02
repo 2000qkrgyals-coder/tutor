@@ -1770,7 +1770,6 @@
             onLogRoadmapChange();
         }
 
-        // [핵심] 일지 작성/수정 시 미완료 목록 렌더링 (과거 회차에서 해결했던 항목도 완벽 복원)
         function onLogRoadmapChange(preserveStep = null, resolvedBids = []) {
             const rmId = document.getElementById('log-roadmap-select').value;
             const stepSelect = document.getElementById('log-roadmap-step-select');
@@ -1805,8 +1804,14 @@
                 stepSelect.value = preserveStep;
             }
 
-            // 미해결 항목 + (수정 중인 회차에서 해결했던 항목)까지 포함하여 화면에 복원
+            const curStepNum = parseInt(stepSelect.value) || 0;
+
+            // [핵심 교정] 현재 선택된 단계보다 엄격히 이전 단계(< curStepNum) 출처의 미완료만 필터링
             const targetBacklogs = backlogs.filter(b => {
+                const bStep = parseInt(b.step_no) || 0;
+                // 자기 자신 또는 이후 단계 출처는 상단 이월창에 절대 노출하지 않음
+                if (curStepNum > 0 && bStep >= curStepNum) return false;
+
                 if (b.status !== 'resolved') return true;
                 if (resolvedBids && resolvedBids.includes(String(b.id))) return true;
                 return false;
@@ -1819,7 +1824,6 @@
                     const bEnd = rangeMatch ? rangeMatch[2] : '';
                     const bTotal = (rangeMatch && parseInt(bEnd) >= parseInt(bStart)) ? (parseInt(bEnd) - parseInt(bStart) + 1) : 0;
                     
-                    // 과거 회차에서 해결했던 항목이면 자동으로 체크 활성화
                     const isChecked = (resolvedBids && resolvedBids.includes(String(b.id))) ? 'checked' : '';
 
                     return `
@@ -1892,7 +1896,6 @@
             calculateProgressRate();
         }
 
-        // [핵심] 일지 저장 및 수정 시 로드맵 상태 전면 동기화 재계산
         async function saveLog() {
             const editingId = document.getElementById('editing-log-id').value;
             const student_name = currentSelectedStudent || document.getElementById('log-student').value;
@@ -1940,17 +1943,20 @@
             const progressList = [];
             const newBacklogs = [];
 
+            const selectedRmId = document.getElementById('log-roadmap-select').value;
+            const selectedStepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
+
             progressRows.forEach(row => {
                 const textbook = row.querySelector('.prog-tb').value;
                 const actualStart = row.querySelector('.prog-start').value;
                 const actualEnd = row.querySelector('.prog-end').value;
                 const desc = row.querySelector('.prog-desc').value.trim();
                 const targetEnd = row.dataset.targetEnd;
-                const stepNo = row.dataset.stepNo;
+                const stepNo = row.dataset.stepNo || selectedStepNo;
 
                 progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
 
-                // 목표치보다 덜 나간 경우 구체적 쪽수를 분할하여 미완료 객체로 생성
+                // 목표치보다 덜 나간 경우 미완료 범위 계산
                 if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
                     const uncompletedStart = parseInt(actualEnd) + 1;
                     const uncompletedEnd = parseInt(targetEnd);
@@ -1981,17 +1987,21 @@
             const roadmapProgressRate = rateCalc ? rateCalc.rate : null;
             const roadmapTargetDetail = rateCalc ? `목표 ${rateCalc.targetTotal}p 중 ${rateCalc.actualTotal}p 소화 (${rateCalc.rate}%)` : '';
 
-            const selectedRmId = document.getElementById('log-roadmap-select').value;
-            const selectedStepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
-
-            // 오늘 체크되어 해결된 이전 미완료 ID 목록
-            const resolvedBids = [];
+            // 이전 단계 미완료 중 오늘 해결 체크한 목록
+            const resolvedActionList = [];
             const backlogRows = document.querySelectorAll('.backlog-check-row');
             backlogRows.forEach(br => {
                 const chk = br.querySelector('.backlog-include-check');
                 const bid = chk ? chk.dataset.bid : null;
-                if(chk && chk.checked && bid) {
-                    resolvedBids.push(String(bid));
+                const solStart = parseInt(br.querySelector('.b-sol-start').value);
+                const solEnd = parseInt(br.querySelector('.b-sol-end').value);
+
+                if(chk && chk.checked && bid && !isNaN(solStart) && !isNaN(solEnd)) {
+                    resolvedActionList.push({
+                        bid: String(bid),
+                        solStart: solStart,
+                        solEnd: solEnd
+                    });
                 }
             });
 
@@ -2001,15 +2011,15 @@
                     let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
                     let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
 
-                    // 만약 일지 수정 중이라면, 과거 이 일지가 해결했던 기록들을 먼저 초기화 후 재판정
+                    // [핵심 교정 1] 수정 모드일 때 과거 해결 기록 원복
                     if(editingId) {
                         const prevLog = allLogs.find(l => l.id == editingId);
                         if(prevLog) {
                             try {
                                 const prevInfo = JSON.parse(prevLog.roadmap_info || '{}');
-                                const prevResolved = prevInfo.resolved_bids || [];
+                                const prevResolvedBids = prevInfo.resolved_bids || [];
                                 backlogs.forEach(b => {
-                                    if(b.id && prevResolved.includes(String(b.id))) {
+                                    if(b.id && prevResolvedBids.includes(String(b.id))) {
                                         b.status = 'unresolved';
                                         delete b.resolved_date;
                                     }
@@ -2018,20 +2028,48 @@
                         }
                     }
 
-                    // 1. 체크된 이전 미완료 항목 해결 처리
-                    backlogs.forEach(b => {
-                        if(b.id && resolvedBids.includes(String(b.id))) {
-                            b.status = 'resolved';
-                            b.resolved_date = date;
+                    // [핵심 교정 2] 해당 단계(selectedStepNo)에서 과거에 발생했던 미완료 내역을 전부 제거 (중복 누적 원천 차단)
+                    if(!isNaN(selectedStepNo)) {
+                        backlogs = backlogs.filter(b => String(b.step_no) !== String(selectedStepNo));
+                    }
+
+                    // 3. 이전 단계 미완료 해결 처리 (부분 해결 분할 포함)
+                    resolvedActionList.forEach(act => {
+                        const found = backlogs.find(b => b.id && String(b.id) === act.bid);
+                        if(found) {
+                            const rangeMatch = String(found.uncompleted_range).match(/(\d+)\s*~\s*(\d+)/);
+                            if(rangeMatch) {
+                                const origStart = parseInt(rangeMatch[1]);
+                                const origEnd = parseInt(rangeMatch[2]);
+
+                                if(act.solEnd < origEnd) {
+                                    found.uncompleted_range = `${origStart}~${act.solEnd}`;
+                                    found.status = 'resolved';
+                                    found.resolved_date = date;
+
+                                    backlogs.push({
+                                        id: 'b-' + Math.random().toString(36).substring(2, 9),
+                                        step_no: found.step_no,
+                                        textbook: found.textbook,
+                                        uncompleted_range: `${act.solEnd + 1}~${origEnd}`,
+                                        desc: found.desc,
+                                        created_date: found.created_date || date,
+                                        status: 'unresolved'
+                                    });
+                                } else {
+                                    found.status = 'resolved';
+                                    found.resolved_date = date;
+                                }
+                            }
                         }
                     });
 
-                    // 2. 신규 미완료 추가
+                    // 4. 이번에 새롭게 발생한 해당 단계 미완료 단 1건 추가
                     if(newBacklogs.length > 0) {
                         backlogs.push(...newBacklogs);
                     }
 
-                    // 3. 단계 완주 상태 동기화: 미완료 발생 시 false, 모두 소화 시 true
+                    // 5. 단계 완주 상태 동기화: 미완료 발생 시 미완주(false), 모두 끝마쳤으면 완주(true)
                     if(!isNaN(selectedStepNo) && steps.length > 0) {
                         const st = steps.find(s => s.step_no === selectedStepNo);
                         if(st) {
@@ -2064,7 +2102,7 @@
                     step_no: selectedStepNo || '',
                     rate: roadmapProgressRate,
                     detail: roadmapTargetDetail,
-                    resolved_bids: resolvedBids
+                    resolved_bids: resolvedActionList.map(a => a.bid)
                 })
             };
 
@@ -2081,119 +2119,6 @@
             resetLogForm();
             await loadData();
             switchMainTab('history');
-        }
-
-        // [핵심] 일지 수정 시 기존 로드맵 및 당시 해결했던 미완료 내역/이행률 완전 복원
-        function editLog(id) {
-            const log = allLogs.find(l => l.id == id);
-            if(!log) return;
-
-            currentSelectedStudent = log.student_name;
-            renderStudentTabs();
-            applyStudentSelection();
-
-            document.getElementById('editing-log-id').value = log.id;
-            document.getElementById('log-student').value = log.student_name;
-            document.getElementById('log-date').value = log.date || '';
-            document.getElementById('log-session').value = log.session_number || '';
-            document.getElementById('log-start-time').value = log.start_time || '';
-            document.getElementById('log-end-time').value = log.end_time || '';
-            document.getElementById('log-concentration').value = log.concentration || '상';
-            document.getElementById('log-feedback').value = log.feedback_note || '';
-
-            updateDailyTestNameTitle();
-
-            // 일지 수정 시 기존 로드맵 선택 상태 및 당시 해결했던 미완료 ID 목록 전달
-            let rmInfo = {};
-            try { rmInfo = JSON.parse(log.roadmap_info || '{}'); } catch(e) {}
-            if(rmInfo.roadmap_id) {
-                document.getElementById('log-roadmap-select').value = rmInfo.roadmap_id;
-                onLogRoadmapChange(rmInfo.step_no, rmInfo.resolved_bids || []);
-            } else {
-                document.getElementById('log-roadmap-select').value = '';
-                onLogRoadmapChange();
-            }
-
-            document.getElementById('daily-test-container').innerHTML = '';
-            try {
-                const dtObj = JSON.parse(log.daily_test || '{}');
-                document.getElementById('dt-total-questions').value = dtObj.total !== undefined ? dtObj.total : '';
-                document.getElementById('dt-correct-questions').value = dtObj.correct !== undefined ? dtObj.correct : '';
-                if (Array.isArray(dtObj.wrongs) && dtObj.wrongs.length > 0) {
-                    dtObj.wrongs.forEach(w => addDailyTestRow(w));
-                } else {
-                    document.getElementById('daily-test-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-1">틀린 문제가 있다면 오답 원인과 함께 추가해주세요.</p>';
-                }
-            } catch(e) {
-                document.getElementById('dt-total-questions').value = '';
-                document.getElementById('dt-correct-questions').value = '';
-                document.getElementById('daily-test-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-1">틀린 문제가 있다면 오답 원인과 함께 추가해주세요.</p>';
-            }
-
-            let checkList = [];
-            try { checkList = JSON.parse(log.homework_check || '[]'); } catch(e) {}
-            if (checkList.length > 0) {
-                const container = document.getElementById('homework-check-container');
-                container.innerHTML = '';
-                checkList.forEach(item => {
-                    renderHomeworkCheckRow(item);
-                });
-                document.getElementById('total-rate-box').classList.remove('hidden');
-                calculateOverallRate();
-            } else {
-                document.getElementById('homework-check-container').innerHTML = '<p class="text-xs text-slate-400 text-center py-2">저장된 숙제 검사 내역이 없습니다.</p>';
-                document.getElementById('total-rate-box').classList.add('hidden');
-            }
-
-            // 실제 나간 진도 복원 (원래 로드맵 기준 쪽수 메타데이터 보존)
-            const progContainer = document.getElementById('progress-container');
-            progContainer.innerHTML = '';
-            let progressList = [];
-            try { progressList = JSON.parse(log.note || '[]'); } catch(e) {}
-            
-            // 로드맵 목표 쪽수 기준값 매칭
-            const targetRm = allRoadmaps.find(r => r.id == rmInfo.roadmap_id);
-            let rmSteps = [];
-            if(targetRm) {
-                try { rmSteps = typeof targetRm.steps === 'string' ? JSON.parse(targetRm.steps) : (targetRm.steps || []); } catch(e) {}
-            }
-            const currentStepObj = rmSteps.find(s => s.step_no == rmInfo.step_no);
-
-            if (progressList.length > 0) {
-                progressList.forEach((p, pIdx) => {
-                    const matchedBook = currentStepObj && currentStepObj.books ? currentStepObj.books[pIdx] : null;
-                    addProgressRow({
-                        textbook: p.textbook,
-                        start: p.start,
-                        end: p.end,
-                        target_start: matchedBook ? matchedBook.start : p.start,
-                        target_end: matchedBook ? matchedBook.end : p.end,
-                        step_no: rmInfo.step_no || '',
-                        desc: p.desc
-                    });
-                });
-            }
-
-            const hwContainer = document.getElementById('homework-container');
-            hwContainer.innerHTML = '';
-            let homeworkList = [];
-            try { homeworkList = JSON.parse(log.homework_note || '[]'); } catch(e) {}
-            if (homeworkList.length > 0) {
-                homeworkList.forEach(h => addHomeworkRow(h));
-            } else {
-                addHomeworkRow();
-            }
-
-            document.getElementById('log-form-title').innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-600"></span> 수업 일지 수정';
-            document.getElementById('log-submit-btn').innerText = '일지 수정 완료';
-            document.getElementById('log-submit-btn').className = 'w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl text-sm font-bold shadow-md transition-all';
-            document.getElementById('log-cancel-btn').classList.remove('hidden');
-
-            // 당시 저장되어 있던 이행률 즉시 재계산 및 복원
-            calculateProgressRate();
-
-            switchMainTab('write');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function resetLogForm() {
