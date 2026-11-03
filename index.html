@@ -86,7 +86,7 @@
         <header class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
             <div>
                 <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
-                    <span>📚</span> 수학 과외 스마트 관리
+                    <span>📚</span> 수학 과외 스마트 관리 플랫폼
                 </h1>
                 <p class="text-indigo-100 text-xs mt-1">단계별 목표 로드맵, 실제 진행 상세 내역, 데일리테스트 및 통계를 스마트하게 관리하세요.</p>
             </div>
@@ -582,6 +582,9 @@
         </div>
     </div>
 
+    <!-- [신규] 로드맵 전용 인쇄 컨테이너 -->
+    <div id="printable-single-roadmap" class="hidden"></div>
+
     <!-- 카톡 스크립트 모달 -->
     <div id="kakao-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100">
@@ -602,6 +605,126 @@
     </div>
 
     <script>
+
+        // [신규] 로드맵 전체 또는 상단 버튼 클릭 시 PDF 인쇄
+        function printCurrentRoadmaps() {
+            if(!currentSelectedStudent) return alert('학생을 먼저 선택해주세요.');
+            const studentRms = allRoadmaps.filter(r => r.student_name === currentSelectedStudent);
+            if(studentRms.length === 0) return alert('출력할 로드맵이 없습니다.');
+            printSingleRoadmap(studentRms[0].id);
+        }
+
+        // [신규] 선택한 로드맵 단독 A4 PDF 인쇄
+        function printSingleRoadmap(rmId) {
+            const rm = allRoadmaps.find(r => String(r.id) === String(rmId));
+            if(!rm) return;
+
+            let steps = [];
+            let backlogs = [];
+            try { steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []); } catch(e) {}
+            try { backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []); } catch(e) {}
+
+            const totalSteps = steps.length;
+            const completedSteps = steps.filter(s => s.completed).length;
+            const progressRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+            const printContainer = document.getElementById('printable-single-roadmap');
+            printContainer.className = 'bg-white p-8 space-y-6 text-slate-800';
+
+            let rowsHtml = steps.map(st => {
+                let booksText = (st.books || []).map(b => `[${b.textbook}] ${b.start}~${b.end}p ${b.desc ? '('+b.desc+')' : ''}`).join('<br>');
+                let resultBadge = st.completed 
+                    ? '<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">완주 완료 ✓</span>'
+                    : '<span class="bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded text-[10px]">진행 대기 / 미완주</span>';
+
+                const matchedLogs = allLogs.filter(l => {
+                    if(!l.id || l.student_name !== rm.student_name) return false;
+                    try {
+                        const info = typeof l.roadmap_info === 'string' ? JSON.parse(l.roadmap_info || '{}') : (l.roadmap_info || {});
+                        return (String(info.roadmap_id) === String(rm.id) && String(info.step_no) === String(st.step_no));
+                    } catch(e) { return false; }
+                });
+
+                let actualDetails = '-';
+                if(matchedLogs.length > 0) {
+                    actualDetails = matchedLogs.map(l => {
+                        let pList = [];
+                        try { pList = typeof l.note === 'string' ? JSON.parse(l.note || '[]') : (l.note || []); } catch(e) {}
+                        let details = pList.map(p => `[${p.textbook}] ${p.start}~${p.end}p`).join(', ');
+                        return `• ${l.date} (${l.session_number || '수업'}회차): ${details}`;
+                    }).join('<br>');
+                }
+
+                return `
+                    <tr class="border-b border-slate-200 text-xs">
+                        <td class="p-2.5 font-bold text-center text-slate-700 w-16">${st.step_no}단계</td>
+                        <td class="p-2.5 font-bold text-slate-800 w-36">${st.title}</td>
+                        <td class="p-2.5 text-slate-600">${booksText}</td>
+                        <td class="p-2.5 text-center w-28">${resultBadge}</td>
+                        <td class="p-2.5 text-slate-700">${actualDetails}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            printContainer.innerHTML = `
+                <div class="border-b-2 border-indigo-600 pb-4 flex justify-between items-end">
+                    <div>
+                        <span class="text-xs font-semibold text-indigo-600">수학 과외 목표 로드맵 진도표</span>
+                        <h1 class="text-2xl font-black mt-1 text-slate-800">🎯 ${rm.title}</h1>
+                    </div>
+                    <div class="text-right text-xs text-slate-500">
+                        <p>학생명: <span class="font-bold text-slate-800">${rm.student_name}</span></p>
+                        <p>출력일: <span class="font-bold text-slate-700">${new Date().toISOString().substring(0, 10)}</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-violet-50/70 p-4 rounded-xl border border-violet-200 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-bold text-violet-700">전체 커리큘럼 누적 달성률</span>
+                        <p class="text-xl font-black text-violet-900 mt-0.5">총 ${totalSteps}단계 중 ${completedSteps}단계 완주 (${progressRate}%)</p>
+                    </div>
+                    <div class="w-1/2 bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div class="bg-violet-600 h-3 rounded-full" style="width: ${progressRate}%;"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-sm font-bold text-slate-800 border-l-4 border-indigo-600 pl-2">📋 단계별 상세 커리큘럼 및 진행 현황</h3>
+                    <table class="w-full text-left border-collapse border border-slate-200 rounded-xl overflow-hidden">
+                        <thead class="bg-slate-50 text-[11px] font-bold text-slate-600 border-b border-slate-200">
+                            <tr>
+                                <th class="p-2.5 text-center">단계</th>
+                                <th class="p-2.5">단원 및 주제</th>
+                                <th class="p-2.5">기준 교재 및 목표 범위</th>
+                                <th class="p-2.5 text-center">진행 결과</th>
+                                <th class="p-2.5">실제 수행 기록</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pt-6 border-t text-center text-[10px] text-slate-400">
+                    수학 과외 스마트 관리 플랫폼 • 커리큘럼 로드맵 리포트
+                </div>
+            `;
+
+            // 로드맵 인쇄 전용 클래스 부착 후 창 띄우기
+            document.body.classList.remove('printing-report');
+            document.body.classList.add('printing-roadmap');
+            printContainer.classList.remove('hidden');
+
+            window.print();
+
+            // 인쇄 종료 후 원상복구
+            setTimeout(() => {
+                document.body.classList.remove('printing-roadmap');
+                printContainer.classList.add('hidden');
+            }, 1000);
+        }
+
         const SUPABASE_URL = 'https://fkpmivbplvifjsyyuyok.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcG1pdmJwbHZpZmpzeXl1eW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNjIxNTksImV4cCI6MjEwMDczODE1OX0.BUEQbr0sPQzbWPi3-nsM0uXCs7bJ0E00ZDQucrVvQ68';
         
@@ -1597,6 +1720,7 @@
                             </div>
                             <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                                 <span class="text-xs font-black px-3 py-1 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100">전체 달성률 ${progressRate}%</span>
+                                <button onclick="printSingleRoadmap('${rm.id}')" class="text-xs font-bold text-violet-600 hover:text-violet-800 px-2.5 py-1 bg-violet-50 rounded-lg border border-violet-200">인쇄</button>
                                 <button onclick="editRoadmap('${rm.id}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2.5 py-1 bg-indigo-50 rounded-lg border border-indigo-200">수정</button>
                                 <button onclick="deleteRoadmap('${rm.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500 px-2 py-1">삭제</button>
                             </div>
