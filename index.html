@@ -1983,14 +1983,19 @@ function syncProgressRowPages(rowId, source) {
                 const targetEnd = row.dataset.targetEnd;
                 const stepNo = row.dataset.stepNo || selectedStepNo;
             
-                progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
+                const tStartNum = parseInt(targetStart) || 1;
+                const tEndNum = parseInt(targetEnd);
+                const aStartNum = parseInt(actualStart);
+                const aEndNum = parseInt(actualEnd);
             
+                // 1) 실제로 1페이지 이상 진행한 경우에만 완료된 정규 진도(progressList)에 기록!
+                if (!isNaN(aStartNum) && !isNaN(aEndNum) && aEndNum >= aStartNum) {
+                    progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
+                }
+            
+                // 2) 미완료 판정 (0페이지를 했거나 일부만 했을 때 미완료 이월로 등록)
                 if (targetEnd) {
-                    const tStartNum = parseInt(targetStart) || 1;
-                    const tEndNum = parseInt(targetEnd);
-            
-                    // 1) 아예 못 나간 경우 (actualEnd가 비어있거나 0인 경우) -> 목표 전체가 미완료!
-                    if (!actualEnd || parseInt(actualEnd) < tStartNum) {
+                    if (isNaN(aEndNum) || aEndNum < tStartNum) {
                         newBacklogs.push({
                             id: 'b-' + Math.random().toString(36).substring(2, 9),
                             step_no: stepNo || '해당',
@@ -2000,15 +2005,12 @@ function syncProgressRowPages(rowId, source) {
                             created_date: date,
                             status: 'unresolved'
                         });
-                    } 
-                    // 2) 일부만 나간 경우 -> (실제 끝 페이지 + 1) ~ 목표 끝 페이지가 미완료!
-                    else if (parseInt(actualEnd) < tEndNum) {
-                        const uncompletedStart = parseInt(actualEnd) + 1;
+                    } else if (aEndNum < tEndNum) {
                         newBacklogs.push({
                             id: 'b-' + Math.random().toString(36).substring(2, 9),
                             step_no: stepNo || '해당',
                             textbook: textbook,
-                            uncompleted_range: `${uncompletedStart}~${tEndNum}`,
+                            uncompleted_range: `${aEndNum + 1}~${tEndNum}`,
                             desc: desc,
                             created_date: date,
                             status: 'unresolved'
@@ -2443,9 +2445,10 @@ function syncProgressRowPages(rowId, source) {
             try {
                 const pList = JSON.parse(log.note || '[]');
                 if (pList.length > 0) {
-                    pList.forEach(p => {
-                        progressListStr.push(`• [정규 진도] [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`);
-                    });
+                    pList.filter(p => p.start !== '' && p.end !== '' && p.start !== undefined && p.end !== undefined)
+                         .forEach(p => {
+                             progressListStr.push(`• [정규 진도] [${p.textbook}] ${p.start}~${p.end}p ${p.desc ? '('+p.desc+')' : ''}`);
+                         });
                 }
             } catch(e) {}
             if (progressListStr.length === 0 && log.textbook) {
@@ -3313,7 +3316,8 @@ function syncProgressRowPages(rowId, source) {
                     let progressList = [];
                     try { progressList = JSON.parse(l.note || '[]'); } catch(e) {}
                     if (Array.isArray(progressList) && progressList.length > 0) {
-                        progressHtml = progressList.map(p => `
+                        const validProgress = progressList.filter(p => p.start !== '' && p.end !== '' && p.start !== undefined && p.end !== undefined);
+                        progressHtml = validProgress.map(p => `
                             <div class="text-xs bg-indigo-50/60 p-2 rounded-xl border border-indigo-100/80 my-1 flex items-center justify-between">
                                 <div><span class="font-bold text-indigo-700">📖 [정규진도]</span> <b>[${p.textbook}]</b> <span class="text-slate-700 font-bold">${p.start}~${p.end}p</span> ${p.desc ? '<span class="text-slate-400">('+p.desc+')</span>' : ''}</div>
                                 <span class="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-extrabold">${(parseInt(p.end) >= parseInt(p.start)) ? (parseInt(p.end)-parseInt(p.start)+1)+'p 완료' : ''}</span>
