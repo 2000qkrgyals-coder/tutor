@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
 @media print {
-    body, #printable-report, #printable-report * {
+    body, #printable-report, #printable-report *, #printable-single-roadmap, #printable-single-roadmap * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
@@ -20,17 +20,34 @@
     body * {
         visibility: hidden;
     }
-    #printable-report, #printable-report * {
+    /* 월별 종합 PDF 리포트 인쇄 시 */
+    body:not(.printing-roadmap) #printable-report,
+    body:not(.printing-roadmap) #printable-report * {
         visibility: visible;
     }
-    #printable-report {
+    body:not(.printing-roadmap) #printable-report {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
         padding: 0 !important;
         margin: 0 !important;
-        font-size: 11px !important; 
+        font-size: 11px !important;
+    }
+    /* 로드맵 단독 인쇄 시 */
+    body.printing-roadmap #printable-single-roadmap,
+    body.printing-roadmap #printable-single-roadmap * {
+        visibility: visible;
+    }
+    body.printing-roadmap #printable-single-roadmap {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px !important;
+        margin: 0 !important;
+        font-size: 11px !important;
     }
     .no-print {
         display: none !important;
@@ -1190,6 +1207,29 @@
 
             document.getElementById('total-rate-text').innerText = `전체 ${totalSum}p 중 ${doneSum}p 완료 (${overallRate}%)`;
             document.getElementById('total-rate-box').classList.remove('hidden');
+        }
+
+        function addDailyTestRow(data = {}) {
+            const container = document.getElementById('daily-test-container');
+            const placeholderMsg = container.querySelector('p');
+            if (placeholderMsg) placeholderMsg.remove();
+
+            const rowId = 'dt-' + Math.random().toString(36).substring(2, 9);
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center bg-white p-2.5 rounded-xl border border-rose-100 text-xs shadow-2xs dt-row';
+            div.id = rowId;
+            div.innerHTML = `
+                <input type="text" placeholder="틀린 문항 번호 (예: 4번)" value="${data.q_num || ''}" class="dt-qnum bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-28 text-center font-semibold">
+                <select class="dt-reason bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-32">
+                    <option value="계산 실수" ${data.reason === '계산 실수' ? 'selected' : ''}>계산 실수</option>
+                    <option value="개념 부족" ${data.reason === '개념 부족' ? 'selected' : ''}>개념 부족</option>
+                    <option value="방법 미숙" ${data.reason === '방법 미숙' ? 'selected' : ''}>방법 미숙</option>
+                    <option value="기타" ${data.reason === '기타' ? 'selected' : ''}>기타</option>
+                </select>
+                <input type="text" placeholder="오답 상세 메모 (선택)" value="${data.desc || ''}" class="dt-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+            `;
+            container.appendChild(div);
         }
 
         function addProgressRow(data = {}) {
@@ -2771,6 +2811,7 @@ function syncProgressRowPages(rowId, source) {
             let hwCount = 0;
             let testRateSum = 0;
             let testCount = 0;
+            let hasTestRecord = false;
 
             const labels = [];
             const homeworkRates = [];
@@ -2830,7 +2871,7 @@ function syncProgressRowPages(rowId, source) {
 
             document.getElementById('stat-total-sessions').innerText = `${totalSessions}회`;
             document.getElementById('stat-avg-homework').innerText = `${avgHw}%`;
-            document.getElementById('stat-avg-test').innerText = avgTest;
+            document.getElementById('stat-avg-test').innerText = hasTestRecord ? `${avgTestNum}%` : '미실시';
 
             renderCharts(labels, homeworkRates, testRates, reasonCounts);
         }
