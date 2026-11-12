@@ -951,228 +951,6 @@
             if(currentMainTab === 'roadmap') renderRoadmapView();
         }
 
-        // [수정] 일지 저장/수정 시 미완료 부분 해결 및 로드맵 실시간 양방향 동기화
-        async function saveLog() {
-            const editingId = document.getElementById('editing-log-id').value;
-            const student_name = currentSelectedStudent || document.getElementById('log-student').value;
-            const date = document.getElementById('log-date').value;
-            const session_number = document.getElementById('log-session').value ? parseInt(document.getElementById('log-session').value) : null;
-            const start_time = document.getElementById('log-start-time').value;
-            const end_time = document.getElementById('log-end-time').value;
-            const concentration = document.getElementById('log-concentration').value;
-            const feedback_note = document.getElementById('log-feedback').value.trim();
-
-            if(!student_name) return alert('학생을 먼저 선택하거나 탭을 눌러주세요.');
-
-            const dtTotal = parseInt(document.getElementById('dt-total-questions').value) || 0;
-            const dtCorrect = parseInt(document.getElementById('dt-correct-questions').value) || 0;
-            const dtRows = document.querySelectorAll('.dt-row');
-            const dtWrongList = [];
-            dtRows.forEach(row => {
-                dtWrongList.push({
-                    q_num: row.querySelector('.dt-qnum').value.trim(),
-                    reason: row.querySelector('.dt-reason').value,
-                    desc: row.querySelector('.dt-desc').value.trim()
-                });
-            });
-            const dailyTestData = {
-                test_name: session_number ? `${session_number}회차` : '데일리테스트',
-                total: dtTotal,
-                correct: dtCorrect,
-                wrongs: dtWrongList
-            };
-
-            const checkItems = document.querySelectorAll('.check-item');
-            const homeworkCheckList = [];
-            checkItems.forEach(item => {
-                const textbook = item.querySelector('.check-tb').value;
-                const desc = item.querySelector('.check-desc') ? item.querySelector('.check-desc').value : '';
-                const start = item.querySelector('.check-start') ? item.querySelector('.check-start').value : '';
-                const end = item.querySelector('.check-end') ? item.querySelector('.check-end').value : '';
-                const total_pages = parseInt(item.querySelector('.check-total').value) || 0;
-                const done_pages = parseInt(item.querySelector('.check-done').value) || 0;
-                const rate = total_pages > 0 ? Math.min(100, Math.round((done_pages / total_pages) * 100)) : 100;
-                homeworkCheckList.push({ textbook, desc, start, end, total_pages, done_pages, rate });
-            });
-
-            const progressRows = document.querySelectorAll('.prog-row');
-            const progressList = [];
-            const newBacklogs = [];
-
-            progressRows.forEach(row => {
-                const textbook = row.querySelector('.prog-tb').value;
-                const actualStart = row.querySelector('.prog-start').value;
-                const actualEnd = row.querySelector('.prog-end').value;
-                const desc = row.querySelector('.prog-desc').value.trim();
-                const targetEnd = row.dataset.targetEnd;
-                const stepNo = row.dataset.stepNo;
-
-                progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
-
-                if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
-                    const uncompletedStart = parseInt(actualEnd) + 1;
-                    const uncompletedEnd = parseInt(targetEnd);
-                    newBacklogs.push({
-                        id: 'b-' + Math.random().toString(36).substring(2, 9),
-                        step_no: stepNo || '해당',
-                        textbook: textbook,
-                        uncompleted_range: `${uncompletedStart}~${uncompletedEnd}`,
-                        desc: desc,
-                        created_date: date,
-                        status: 'unresolved'
-                    });
-                }
-            });
-
-            const hwRows = document.querySelectorAll('#homework-container > div');
-            const homeworkList = [];
-            hwRows.forEach(row => {
-                homeworkList.push({
-                    textbook: row.querySelector('.hw-tb').value,
-                    start: row.querySelector('.hw-start').value,
-                    end: row.querySelector('.hw-end').value,
-                    desc: row.querySelector('.hw-desc').value.trim()
-                });
-            });
-
-            const rateCalc = calculateProgressRate();
-            const roadmapProgressRate = rateCalc ? rateCalc.rate : null;
-            const roadmapTargetDetail = rateCalc ? `목표 ${rateCalc.targetTotal}p 중 ${rateCalc.actualTotal}p 소화 (${rateCalc.rate}%)` : '';
-
-            const selectedRmId = document.getElementById('log-roadmap-select').value;
-            const selectedStepNo = parseInt(document.getElementById('log-roadmap-step-select').value);
-
-            // 오늘 체크한 이전 미완료 항목의 해결 쪽수 및 분할 판정
-            const resolvedActionList = [];
-            const backlogRows = document.querySelectorAll('.backlog-check-row');
-            backlogRows.forEach(br => {
-                const chk = br.querySelector('.backlog-include-check');
-                const bid = chk ? chk.dataset.bid : null;
-                const solStart = parseInt(br.querySelector('.b-sol-start').value);
-                const solEnd = parseInt(br.querySelector('.b-sol-end').value);
-
-                if(chk && chk.checked && bid && !isNaN(solStart) && !isNaN(solEnd)) {
-                    resolvedActionList.push({
-                        bid: String(bid),
-                        solStart: solStart,
-                        solEnd: solEnd
-                    });
-                }
-            });
-
-            if(selectedRmId) {
-                const rm = allRoadmaps.find(r => r.id == selectedRmId);
-                if(rm) {
-                    let backlogs = typeof rm.backlogs === 'string' ? JSON.parse(rm.backlogs) : (rm.backlogs || []);
-                    let steps = typeof rm.steps === 'string' ? JSON.parse(rm.steps) : (rm.steps || []);
-
-                    // 수정 모드일 경우: 과거 이 일지 때문에 변경되었던 상태를 원복(Rollback)
-                    if(editingId) {
-                        const prevLog = allLogs.find(l => l.id == editingId);
-                        if(prevLog) {
-                            try {
-                                const prevInfo = JSON.parse(prevLog.roadmap_info || '{}');
-                                const prevResolvedBids = prevInfo.resolved_bids || [];
-                                backlogs.forEach(b => {
-                                    if(b.id && prevResolvedBids.includes(String(b.id))) {
-                                        b.status = 'unresolved';
-                                        delete b.resolved_date;
-                                    }
-                                });
-                            } catch(e) {}
-                        }
-                    }
-
-                    // 부분 해결 및 잔여 분할 처리
-                    resolvedActionList.forEach(act => {
-                        const found = backlogs.find(b => b.id && String(b.id) === act.bid);
-                        if(found) {
-                            const rangeMatch = String(found.uncompleted_range).match(/(\d+)\s*~\s*(\d+)/);
-                            if(rangeMatch) {
-                                const origStart = parseInt(rangeMatch[1]);
-                                const origEnd = parseInt(rangeMatch[2]);
-
-                                if(act.solEnd < origEnd) {
-                                    // 9~10p 중 9~9p만 완료한 경우: 기존 것은 9~9p로 해결 완료 처리
-                                    found.uncompleted_range = `${origStart}~${act.solEnd}`;
-                                    found.status = 'resolved';
-                                    found.resolved_date = date;
-
-                                    // 남은 10~10p는 새로운 미완료 잔여로 유지
-                                    backlogs.push({
-                                        id: 'b-' + Math.random().toString(36).substring(2, 9),
-                                        step_no: found.step_no,
-                                        textbook: found.textbook,
-                                        uncompleted_range: `${act.solEnd + 1}~${origEnd}`,
-                                        desc: found.desc,
-                                        created_date: found.created_date || date,
-                                        status: 'unresolved'
-                                    });
-                                } else {
-                                    // 전체 범위 다 푼 경우
-                                    found.status = 'resolved';
-                                    found.resolved_date = date;
-                                }
-                            }
-                        }
-                    });
-
-                    // 신규 미완료 추가
-                    if(newBacklogs.length > 0) {
-                        backlogs.push(...newBacklogs);
-                    }
-
-                    // 단계 완주 여부 판정
-                    if(!isNaN(selectedStepNo) && steps.length > 0) {
-                        const st = steps.find(s => s.step_no === selectedStepNo);
-                        if(st) {
-                            st.completed = (newBacklogs.length === 0 && progressRows.length > 0);
-                        }
-                    }
-
-                    await _supabase.from('roadmaps').update({
-                        backlogs: JSON.stringify(backlogs),
-                        steps: JSON.stringify(steps)
-                    }).eq('id', selectedRmId);
-                }
-            }
-
-            const logData = { 
-                student_name, 
-                textbook: progressList.length > 0 ? progressList[0].textbook : '', 
-                date, 
-                session_number, 
-                start_time, 
-                end_time, 
-                note: JSON.stringify(progressList), 
-                homework_note: JSON.stringify(homeworkList), 
-                homework_check: JSON.stringify(homeworkCheckList),
-                daily_test: JSON.stringify(dailyTestData),
-                concentration: concentration,
-                feedback_note: feedback_note,
-                roadmap_info: JSON.stringify({
-                    roadmap_id: selectedRmId || '',
-                    step_no: selectedStepNo || '',
-                    rate: roadmapProgressRate,
-                    detail: roadmapTargetDetail,
-                    resolved_bids: resolvedActionList.map(a => a.bid)
-                })
-            };
-
-            if(editingId) {
-                const { error } = await _supabase.from('logs').update(logData).eq('id', editingId);
-                if(error) return alert('수정 실패: ' + error.message);
-                alert('수업 일지가 수정되었습니다!');
-            } else {
-                const { error } = await _supabase.from('logs').insert([logData]);
-                if(error) return alert('저장 실패: ' + error.message);
-                alert('수업 일지가 저장되었습니다! (미완료 진도는 다음 회차로 자동 이월되었습니다)');
-            }
-
-            resetLogForm();
-            await loadData();
-            switchMainTab('history');
-        }
         async function saveStudent() {
             const input = document.getElementById('student-name');
             const name = input.value.trim();
@@ -1414,55 +1192,101 @@
             document.getElementById('total-rate-box').classList.remove('hidden');
         }
 
-        function addDailyTestRow(data = {}) {
-            const container = document.getElementById('daily-test-container');
-            const placeholderMsg = container.querySelector('p');
-            if (placeholderMsg) placeholderMsg.remove();
-
-            const rowId = 'dt-' + Math.random().toString(36).substring(2, 9);
-            const div = document.createElement('div');
-            div.className = 'flex gap-2 items-center bg-white p-2.5 rounded-xl border border-rose-100 text-xs shadow-2xs dt-row';
-            div.id = rowId;
-            div.innerHTML = `
-                <input type="text" placeholder="틀린 문항 번호 (예: 4번)" value="${data.q_num || ''}" class="dt-qnum bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-28 text-center font-semibold">
-                <select class="dt-reason bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-32">
-                    <option value="계산 실수" ${data.reason === '계산 실수' ? 'selected' : ''}>계산 실수</option>
-                    <option value="개념 부족" ${data.reason === '개념 부족' ? 'selected' : ''}>개념 부족</option>
-                    <option value="방법 미숙" ${data.reason === '방법 미숙' ? 'selected' : ''}>방법 미숙</option>
-                    <option value="기타" ${data.reason === '기타' ? 'selected' : ''}>기타</option>
-                </select>
-                <input type="text" placeholder="오답 상세 메모 (선택)" value="${data.desc || ''}" class="dt-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
-                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
-            `;
-            container.appendChild(div);
-        }
-
         function addProgressRow(data = {}) {
             const container = document.getElementById('progress-container');
             const rowId = 'prog-' + Math.random().toString(36).substring(2, 9);
             const div = document.createElement('div');
-            div.className = 'flex gap-2 items-center bg-white p-2.5 rounded-xl border border-indigo-100 text-xs shadow-2xs prog-row';
+            div.className = 'flex flex-col gap-2 bg-white p-3 rounded-xl border border-indigo-100 text-xs shadow-2xs prog-row';
             div.id = rowId;
             
             const targetStart = data.target_start !== undefined ? data.target_start : '';
             const targetEnd = data.target_end !== undefined ? data.target_end : '';
             const stepNo = data.step_no !== undefined ? data.step_no : '';
-
+        
             div.dataset.targetStart = targetStart;
             div.dataset.targetEnd = targetEnd;
             div.dataset.stepNo = stepNo;
-
+        
+            // 목표 쪽수 및 실제 수행 쪽수 초기 계산
+            let targetTotal = (targetStart !== '' && targetEnd !== '' && parseInt(targetEnd) >= parseInt(targetStart))
+                ? (parseInt(targetEnd) - parseInt(targetStart) + 1) : 0;
+            let actualTotal = (data.start !== '' && data.start !== undefined && data.end !== '' && data.end !== undefined && parseInt(data.end) >= parseInt(data.start))
+                ? (parseInt(data.end) - parseInt(data.start) + 1) : 0;
+            let rate = targetTotal > 0 ? Math.min(100, Math.round((actualTotal / targetTotal) * 100)) : (actualTotal > 0 ? 100 : 0);
+        
             div.innerHTML = `
-                <select class="prog-tb bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-1/3">${getTextbookOptions(data.textbook)}</select>
-                <input type="number" placeholder="시작" value="${data.start !== undefined ? data.start : ''}" oninput="calculateProgressRate()" class="prog-start bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
-                <span class="text-slate-400">~</span>
-                <input type="number" placeholder="끝" value="${data.end !== undefined ? data.end : ''}" oninput="calculateProgressRate()" class="prog-end bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
-                <input type="text" placeholder="비고(단원명 또는 프린트 이름)" value="${data.desc || ''}" class="prog-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
-                <button type="button" onclick="document.getElementById('${rowId}').remove(); calculateProgressRate();" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+                <div class="flex gap-1.5 items-center">
+                    <select class="prog-tb bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-1/3">${getTextbookOptions(data.textbook)}</select>
+                    <input type="number" placeholder="시작" value="${data.start !== undefined ? data.start : ''}" oninput="syncProgressRowPages('${rowId}', 'range')" class="prog-start bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
+                    <span class="text-slate-400">~</span>
+                    <input type="number" placeholder="끝" value="${data.end !== undefined ? data.end : ''}" oninput="syncProgressRowPages('${rowId}', 'range')" class="prog-end bg-slate-50 border border-slate-200 p-1.5 rounded-lg w-14 text-center font-bold">
+                    <input type="text" placeholder="비고(단원명)" value="${data.desc || ''}" class="prog-desc bg-slate-50 border border-slate-200 p-1.5 rounded-lg flex-1">
+                    <button type="button" onclick="document.getElementById('${rowId}').remove(); calculateProgressRate();" class="text-slate-300 hover:text-red-500 font-bold px-1.5 text-base">×</button>
+                </div>
+                <div class="flex justify-between items-center pt-1.5 border-t border-indigo-50">
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                            <span class="text-slate-500">목표 쪽수:</span>
+                            <input type="number" value="${targetTotal}" oninput="syncProgressRowPages('${rowId}', 'count')" class="prog-target-count bg-white border border-slate-200 p-0.5 rounded w-12 text-center font-semibold">
+                            <span>p</span>
+                        </div>
+                        <div class="flex items-center gap-1 bg-indigo-50/60 px-2 py-1 rounded-lg border border-indigo-200">
+                            <span class="text-indigo-700 font-semibold">한 쪽수:</span>
+                            <input type="number" value="${actualTotal}" oninput="syncProgressRowPages('${rowId}', 'count')" class="prog-actual-count bg-white border border-indigo-200 p-0.5 rounded w-12 text-center font-bold text-indigo-700">
+                            <span>p</span>
+                        </div>
+                    </div>
+                    <span class="prog-row-rate font-extrabold text-indigo-600">${rate}% 완료</span>
+                </div>
             `;
             container.appendChild(div);
             calculateProgressRate();
         }
+
+// [신규 추가] 시작~끝 페이지 입력과 한 쪽수(개수) 입력을 서로 실시간 연동하는 함수
+function syncProgressRowPages(rowId, source) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    const startInput = row.querySelector('.prog-start');
+    const endInput = row.querySelector('.prog-end');
+    const targetCountInput = row.querySelector('.prog-target-count');
+    const actualCountInput = row.querySelector('.prog-actual-count');
+    const rateSpan = row.querySelector('.prog-row-rate');
+
+    const tStart = parseInt(row.dataset.targetStart);
+    const tEnd = parseInt(row.dataset.targetEnd);
+
+    if (source === 'range') {
+        const s = parseInt(startInput.value);
+        const e = parseInt(endInput.value);
+        const actual = (!isNaN(s) && !isNaN(e) && e >= s) ? (e - s + 1) : 0;
+        actualCountInput.value = actual;
+    } else if (source === 'count') {
+        const actual = parseInt(actualCountInput.value) || 0;
+        const baseStart = !isNaN(tStart) ? tStart : (parseInt(startInput.value) || 1);
+        if (actual > 0) {
+            startInput.value = baseStart;
+            endInput.value = baseStart + actual - 1;
+        } else {
+            startInput.value = '';
+            endInput.value = '';
+        }
+        // 목표 쪽수를 직접 고쳤다면 dataset.targetEnd도 함께 보정
+        const target = parseInt(targetCountInput.value) || 0;
+        if (target > 0) {
+            row.dataset.targetStart = baseStart;
+            row.dataset.targetEnd = baseStart + target - 1;
+        }
+    }
+
+    const targetVal = parseInt(targetCountInput.value) || 0;
+    const actualVal = parseInt(actualCountInput.value) || 0;
+    const rate = targetVal > 0 ? Math.min(100, Math.round((actualVal / targetVal) * 100)) : (actualVal > 0 ? 100 : 0);
+    rateSpan.innerText = `${rate}% 완료`;
+
+    calculateProgressRate();
+}
 
         function addHomeworkRow(data = {}) {
             const container = document.getElementById('homework-container');
@@ -2155,23 +1979,41 @@
                 const actualStart = row.querySelector('.prog-start').value;
                 const actualEnd = row.querySelector('.prog-end').value;
                 const desc = row.querySelector('.prog-desc').value.trim();
+                const targetStart = row.dataset.targetStart;
                 const targetEnd = row.dataset.targetEnd;
                 const stepNo = row.dataset.stepNo || selectedStepNo;
-
+            
                 progressList.push({ textbook, start: actualStart, end: actualEnd, desc });
-
-                if(targetEnd && actualEnd && parseInt(actualEnd) < parseInt(targetEnd)) {
-                    const uncompletedStart = parseInt(actualEnd) + 1;
-                    const uncompletedEnd = parseInt(targetEnd);
-                    newBacklogs.push({
-                        id: 'b-' + Math.random().toString(36).substring(2, 9),
-                        step_no: stepNo || '해당',
-                        textbook: textbook,
-                        uncompleted_range: `${uncompletedStart}~${uncompletedEnd}`,
-                        desc: desc,
-                        created_date: date,
-                        status: 'unresolved'
-                    });
+            
+                if (targetEnd) {
+                    const tStartNum = parseInt(targetStart) || 1;
+                    const tEndNum = parseInt(targetEnd);
+            
+                    // 1) 아예 못 나간 경우 (actualEnd가 비어있거나 0인 경우) -> 목표 전체가 미완료!
+                    if (!actualEnd || parseInt(actualEnd) < tStartNum) {
+                        newBacklogs.push({
+                            id: 'b-' + Math.random().toString(36).substring(2, 9),
+                            step_no: stepNo || '해당',
+                            textbook: textbook,
+                            uncompleted_range: `${tStartNum}~${tEndNum}`,
+                            desc: desc,
+                            created_date: date,
+                            status: 'unresolved'
+                        });
+                    } 
+                    // 2) 일부만 나간 경우 -> (실제 끝 페이지 + 1) ~ 목표 끝 페이지가 미완료!
+                    else if (parseInt(actualEnd) < tEndNum) {
+                        const uncompletedStart = parseInt(actualEnd) + 1;
+                        newBacklogs.push({
+                            id: 'b-' + Math.random().toString(36).substring(2, 9),
+                            step_no: stepNo || '해당',
+                            textbook: textbook,
+                            uncompleted_range: `${uncompletedStart}~${tEndNum}`,
+                            desc: desc,
+                            created_date: date,
+                            status: 'unresolved'
+                        });
+                    }
                 }
             });
 
@@ -2436,28 +2278,60 @@
                 document.getElementById('total-rate-box').classList.add('hidden');
             }
 
-            // 4. 실제 나간 진도 목록 복원
+            // 4. 실제 나간 진도 목록 복원 (로드맵 원래 기준 계획과 대조하여 미완료 역산 보장)
             const progContainer = document.getElementById('progress-container');
             progContainer.innerHTML = '';
             let progressList = [];
             try { progressList = JSON.parse(log.note || '[]'); } catch(e) {}
-
+            
             const targetRm = allRoadmaps.find(r => r.id == rmInfo.roadmap_id);
             let rmSteps = [];
             if(targetRm) {
                 try { rmSteps = typeof targetRm.steps === 'string' ? JSON.parse(targetRm.steps) : (targetRm.steps || []); } catch(e) {}
             }
             const currentStepObj = rmSteps.find(s => s.step_no == rmInfo.step_no);
-
-            if (progressList.length > 0) {
-                progressList.forEach((p, pIdx) => {
-                    const matchedBook = currentStepObj && currentStepObj.books ? currentStepObj.books[pIdx] : null;
+            
+            if (currentStepObj && Array.isArray(currentStepObj.books) && currentStepObj.books.length > 0) {
+                // 로드맵 단계의 원래 교재 항목들을 기준으로 매칭 (과거에 지웠던 항목도 원래 목표 범위를 살려서 복원)
+                currentStepObj.books.forEach((book, bIdx) => {
+                    const matchedProg = progressList.find(p => 
+                        p.textbook === book.textbook && 
+                        ((book.desc && p.desc && p.desc.includes(book.desc)) || progressList.indexOf(p) === bIdx)
+                    ) || progressList[bIdx];
+            
+                    addProgressRow({
+                        textbook: book.textbook,
+                        start: matchedProg ? matchedProg.start : '',
+                        end: matchedProg ? matchedProg.end : '',
+                        target_start: book.start,
+                        target_end: book.end,
+                        step_no: rmInfo.step_no || '',
+                        desc: matchedProg ? matchedProg.desc : (book.desc ? `[${currentStepObj.step_no}단계] ${currentStepObj.title} - ${book.desc}` : `[${currentStepObj.step_no}단계] ${currentStepObj.title}`)
+                    });
+                });
+            
+                // 로드맵 외에 추가로 입력했던 진도가 있다면 함께 복원
+                if (progressList.length > currentStepObj.books.length) {
+                    progressList.slice(currentStepObj.books.length).forEach(p => {
+                        addProgressRow({
+                            textbook: p.textbook,
+                            start: p.start,
+                            end: p.end,
+                            target_start: p.start,
+                            target_end: p.end,
+                            step_no: rmInfo.step_no || '',
+                            desc: p.desc
+                        });
+                    });
+                }
+            } else if (progressList.length > 0) {
+                progressList.forEach((p) => {
                     addProgressRow({
                         textbook: p.textbook,
                         start: p.start,
                         end: p.end,
-                        target_start: matchedBook ? matchedBook.start : p.start,
-                        target_end: matchedBook ? matchedBook.end : p.end,
+                        target_start: p.start,
+                        target_end: p.end,
                         step_no: rmInfo.step_no || '',
                         desc: p.desc
                     });
